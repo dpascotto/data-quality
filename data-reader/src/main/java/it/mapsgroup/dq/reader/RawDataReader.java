@@ -5,5 +5,5 @@ import it.mapsgroup.dq.vo.ItemVo;
 import java.util.Collection;
 
 public interface RawDataReader {
-	Collection<ItemVo> readAllItems(String file);
+	Collection<ItemVo> readAllItems(String file) throws Exception;
 }
