@@ -17,6 +17,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 public class TestRawDataReader {
 	@Autowired BigExcelRawDataReader excelReader;
 	
+	//private static final String FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/estrazione dati anagrafici materiali movimentati.xlsx";
+	private static final String FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/saipem-clone.xlsx";
 	private static final String SMALL_FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/saipem-clone-small.xlsx";
 
 	@Test
