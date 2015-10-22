@@ -1,15 +1,16 @@
 package it.mapsgroup.dq.job;
 
-import java.util.Collection;
-
 import it.mapsgroup.dq.bulkwriter.JdbcBulkDataWriter;
 import it.mapsgroup.dq.reader.bigexcel.BigExcelRawDataReader;
 import it.mapsgroup.dq.vo.ItemVo;
+
+import java.util.Collection;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+@SuppressWarnings("unchecked")
 @Service(value = "populator")
 public class PopulatorImpl implements Populator {
 	private Logger log = Logger.getLogger(this.getClass());
@@ -23,6 +24,7 @@ public class PopulatorImpl implements Populator {
 		//	First empty all tables (in the correct order)
 		//
 		//jdbcBulkDataWriter.truncate("PRODUCT_GROUP", "MATERIAL");
+		//jdbcBulkDataWriter.truncate("MATERIAL", "UNIT_OF_MEASURE", "PRODUCT_GROUP");
 		jdbcBulkDataWriter.truncate("MATERIAL");
 		
 		//
@@ -43,9 +45,14 @@ public class PopulatorImpl implements Populator {
 			try {
 				jdbcBulkDataWriter.insertItem(item);
 				numSuccess ++;
+				if (numSuccess % 1000 == 0) {
+					System.out.println(numSuccess + " records processed");
+				}
 			} catch (Exception e) {
 				log.error("Unable to insert item " + item.getItemCode(), e);
 				numFailures ++;
+				
+				throw e;
 			}
 		}
 		
@@ -60,5 +67,6 @@ public class PopulatorImpl implements Populator {
 		
 		return numSuccess;
 	}
+
 
 }

@@ -17,11 +17,13 @@ public class TestPopulator {
 	//private static final String FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/estrazione dati anagrafici materiali movimentati.xlsx";
 	private static final String FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/saipem-clone.xlsx";
 	private static final String SMALL_FILE_NAME = "C:/Users/dipa/Dropbox/MAPS/projects/201510 - Saipem/saipem-clone-small.xlsx";
+	private static final String PN_FILE_NAME = "C:/projects/201510 - saipem/Legame codice materiale estratto_codice macchina.xlsx";
+	private static final String SMALL_PN_FILE_NAME = "C:/projects/201510 - saipem/Legame codice materiale estratto_codice macchina_SMALL.xlsx";
 
 	@Test
 	public void testPopulator() {
 		try {
-			int insertedRows = populator.populateMaterials(SMALL_FILE_NAME, "rId1", true);
+			int insertedRows = populator.populateMaterials(FILE_NAME, "rId1", true);
 					
 			System.out.println("Test OK, inserted records: " + insertedRows);
 		} catch (Exception e) {

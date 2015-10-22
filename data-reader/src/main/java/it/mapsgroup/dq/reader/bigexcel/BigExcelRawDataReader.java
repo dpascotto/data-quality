@@ -1,21 +1,17 @@
 package it.mapsgroup.dq.reader.bigexcel;
 
 import it.mapsgroup.dq.reader.RawDataReader;
+import it.mapsgroup.dq.reader.bigexcel.mapper.ExcelMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.ItemMapper;
 import it.mapsgroup.dq.vo.ItemVo;
 
-import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 
 import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.opc.OPCPackage;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.model.SharedStringsTable;
 import org.springframework.stereotype.Service;
@@ -26,7 +22,7 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 @Service(value = "raw-data-reader-excel")
-public class BigExcelRawDataReader implements RawDataReader {
+public class BigExcelRawDataReader<T> implements RawDataReader {
 	
 	Logger log = Logger.getLogger(this.getClass());
 
@@ -39,19 +35,19 @@ public class BigExcelRawDataReader implements RawDataReader {
 
 	@Override
 	public Collection<ItemVo> readAllItems(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new ItemMapper());
+	}
+	
+	private Collection readAll(String file, String sheetId, boolean firstRowIsHeader, ExcelMapper mapper) throws Exception {
 		
-		Collection<ItemVo> allItems = new ArrayList<ItemVo>();
+		Collection allRecords = new ArrayList();
 		
  		OPCPackage pkg = OPCPackage.open(file);
 		XSSFReader reader = new XSSFReader( pkg );
 		SharedStringsTable sst = reader.getSharedStringsTable();
 
 		XMLReader parser = fetchSheetParser(sst);
-		//parser.setContentHandler(new SheetHandler());
 
-		// To look up the Sheet Name / Sheet Order / rID,
-		//  you need to process the core Workbook stream.
-		// Normally it's of the form rId# or rSheet#
 		InputStream sheet = reader.getSheet(sheetId);
 		InputSource sheetSource = new InputSource(sheet);
 	
@@ -64,23 +60,19 @@ public class BigExcelRawDataReader implements RawDataReader {
 			}
 			HashMap row = (HashMap)xh.getRows().get(r);
 			
-			//	Populate an ItemVo
-			ItemVo item = new ItemVo();
-			item.setItemCode(getString(row, "A"));
-			item.setItemDescription(getString(row, "B"));
+			Object record = mapper.map(row);
 			
-			allItems.add(item);
-			
+			allRecords.add(record);
 		}
 		
 		sheet.close();
         
-		log.info("All items read: " + allItems.size());
-		return allItems;
+		log.info("All records read: " + allRecords.size());
+		return allRecords;
 	}
 
-	private String getString(HashMap row, String columnLetter) {
-		return (String)row.get(columnLetter);
-	}
+
+
+
 
 }

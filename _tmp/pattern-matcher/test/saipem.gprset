@@ -1,0 +1,988 @@
+### Saipem description parser
+###
+### SCOPE:	
+### LAYERS:
+###
+###	B	BEFORE
+###	A	AFTER
+###	T	STANDARD TEXT LAYER
+###
+###	E	EXTRA QUERY LAYER
+###
+###	H	HELPERS
+
+@dot := <\.> .
+@comma := <\,> .
+@colon := <\:> .
+@openr := <\(> .
+@closer := <\)> .
+@hyphen := <\-> .
+@slash := <\/> .
+@pound := <\#> .
+@quote := <\'> .
+@dquote := <\"> .
+@dquote := <\'\'> .
+@amper := <\&> .
+@equals := <\=> .
+
+@letter := <[a-z]> .
+@bigram := <[a-z][a-z]> .
+@word := <[a-z]+> .
+
+@number := <\d+> .
+@rnumber := <^[mM]*([dD]?[cC]{0,3}|[cC][dDmM])([lL]?[xX]{0,3}|[xX][lLcC])([vV]?[iI]{0,3}|[iI][vVxX])> .
+@code := <^[a-z|A-Z]+[0-9]+([a-z|A-Z]+[0-9]*)*> .
+@code := <^[0-9]+[a-z|A-Z]+([0-9]+[a-z|A-Z]*)*> .
+
+@seqno := <^[0-9]+([\s][0-9]*)?> . 
+@seqno := <[0-9]+_[0-9]+> . 
+
+### STANDARD ABBRS
+@n := number .
+@n := "no @dot" .
+@n := "no @colon" .
+@n := no . 
+@n := <n> w ° .
+
+@and := <and> .
+@or := <or> .
+
+### DATES AND PERIODS
+@longyear := <(19|20)[0-9][0-9]> .
+@shortyear := <[0-9][0-9]> .
+@yearno := @shortyear or @longyear .
+@month_it := <[Gg]en(naio)?|[Ff]eb(braio)?|[Mm]ar(zo)?|[Aa]pr(ile)?|[Mm]ag(gio)?|[Gg]iu(gno)?|[Ll]ug(glio)|[Aa]go(sto)?|[Ss]et(tembre)?|[Oo]tt(obre)?|[Nn]ov(embre)?|[Dd]ic(embre)? (\.)?> .
+@month_en := <[Jj]an(uary)?|[Ff]eb(ruary)?|[Mm]ar(ch)?|[Aa]pr(il)?|[Mm]ay|[Jj]un(e)?|[Jj]ul(y)?|[Aa]ug(ust)?|[Ss]ep(tember)?|[Oo]ct(ober)?|[Nn]ov(ember)?|[Dd]ic(ember)? (\.)?> .
+@month_fr := <[Jj]an(vier)?|[Ff]ev(rier)?|[Mm]ar(s)?|[Aa]vr(il)?|[Mm]ai|[Jj]ui(n)?|[Jj]ul(liet)?|[Aa]o[ûu](t)?|[Ss]ep(tembre)?|[Oo]ct(obre)?|[Nn]ov(embre)?|[Dd][ée]c(embre)? (\.)?> .
+### @dayn := <^[0-3]?[0-9]> .
+@dayn := <0?[1-9]|1[0-9]|2[0-9]|3[0-1]> .
+### @monthn := <[0-9]|10|11|12> .
+@monthn := <0?[1-9]|1[0-2]> .
+
+@month_word := mois or month or mese .
+@month_name := @month_en w @dot .
+@month_name := @month_it w @dot .
+@month_name := @month_fr w @dot .
+@month_name := @month_en or @month_it or @month_fr . 
+
+@from := from or da or dal or du .
+@to := to or a or al or au .
+@period := period or periodo or période or periode .
+
+### particles
+@for := for or per or pour .
+@of := of or di or del or della .
+
+@part := @from or @to or @for or @of . 
+
+### ADM patterns
+@order := "pay invoice" .
+@order := "pay invoices". 
+@order := po or odl or pr or invoice or invoices. 
+@order := "r @dot d @dot a @dot" or rda .
+@order := order or ord or wo .
+@order := "mr @pound" .
+@order := mr or pr .
+@order := "ws @pound" .
+@order := ws .
+@order := "fds @hyphen uru" .
+@order := uru .
+
+@order := @order w @dot .
+
+@reg := régularisation or regularization .
+
+### TECH Patterns
+@nps := nps or nps1 or nps2 .
+
+@inches := @number w @dquote .
+@uoml := <mm|cm|mt|meter|meters|m>.
+@uomw := <gr|kg|ton|lb|lbs>.
+@uom := @uoml or @uomw.
+
+@length := length or lengths.
+@length := lunghezza .
+@length := "len @dot" .
+@length := "lung @dot" .
+@length := len .
+
+@thickness := thickness or spessore .
+@thickness := thk .
+
+@diameter := diameter or diametro or diametre .
+@diameter := "dia @dot" .
+@diameter := dia .
+
+@thread := thread .
+@thread := "thd @dot" .
+@thread := thd .
+
+@schedule := schedule or scheduled .
+@schedule := "sch @dot" .
+@schedule := sch .
+
+### common terms
+@service := serv or service or services or servizi or servizio .
+@service := "@service @dot" .
+
+### DEBUG
+@city := H#CITY .
+
+stage base loop="false"
+	
+	rule bos
+		pattern : ||bos|| .
+		on "*" add "H#BOS"
+		on "*" remove "T#TEXT"
+
+	rule eos
+		pattern : ||eos|| .
+		on "*" add "H#EOS"
+		on "*" remove "T#TEXT"		
+		
+	rule date
+		pattern : "@dayn @slash @monthn @slash @yearno" .
+		pattern : "@dayn @dot @monthn @dot @yearno" .
+		pattern : "@month_word di @month_name @yearno" .
+		pattern : "@month_word @month_name @yearno" .
+		pattern : "@month_name @quote @yearno" .
+		pattern : "@month_name @yearno" .
+		on "*" add "H#DATE"	
+		
+	rule period
+		@sep := @to or @slash or @hyphen .
+		pattern : "@from H#DATE @to H#DATE" . 		
+		pattern : "H#DATE @sep H#DATE" . 		
+		pattern : "H#DATE @sep H#DATE" .
+		pattern : "@month_name @sep H#DATE" .
+		pattern : "@month_name @sep @month_name" .
+		on "*" add "H#DATE" 		
+
+	rule period
+		pattern : "@period H#DATE" .
+		on @period add "H#DATE" 		
+
+	rule inches
+		pattern : "@number @slash @inches" .
+		pattern : "@number @hyphen @inches" .
+		pattern : @inches .
+		on "*" add "H#INCHES" 		
+	
+	rule numbers
+		@sep := @dot or @comma or @slash .
+		pattern : "@number @sep @number" .
+		pattern : "@dot @number" .
+		pattern : @number .
+		on "*" add "H#NUMBER" 		
+
+	rule inches_2
+		pattern : "H#NUMBER @hyphen H#INCHES" .
+		pattern : "H#NUMBER H#INCHES" .
+		on "*" add "H#INCHES" 		
+		
+stage code_components loop="false"
+
+	rule code_segment
+		pattern : "@seqno @hyphen @seqno" .
+		pattern : "@seqno @hyphen @code" .
+		pattern : "@code @hyphen @seqno" .
+		pattern : "@letter @hyphen @seqno" .
+		pattern : "@seqno @slash @seqno" .
+		pattern : "@code @slash @seqno" .
+		pattern : "@letter @slash @seqno" .
+		pattern : "@seqno @slash @code" .
+		pattern : "@letter @hyphen @code" .
+		pattern : "@letter @slash @code" .
+
+		pattern : "@word @hyphen @seqno" .
+		pattern : "@word @slash @seqno" .
+		pattern : "@word @slash @word @hyphen @seqno" .
+		pattern : "@word @slash @word @slash @seqno" .
+		pattern : "@word @slash @word @seqno" .
+
+		pattern : "@code @seqno" .
+		pattern : "@seqno @code" .
+		
+		pattern : @code .
+
+		on "*" add "H#CODE"
+
+stage code_aggregate loop="true"
+
+	rule code_sequence
+		pattern : "@bigram @hyphen H#CODE" .
+		pattern : "H#CODE @hyphen H#CODE" .
+		pattern : "H#CODE @slash H#CODE" .
+		pattern : "H#CODE @comma H#CODE" .
+		pattern : "H#CODE @and H#CODE" .
+		pattern : "H#CODE @amper H#CODE" .
+		on "*" add "H#CODE"
+
+stage references loop="false"
+
+	@ref := ref w @dot .
+	@ref := cod w @dot .
+	@ref := ref or reference or codice or code or part or cod or pn or item or nr .
+	@pos := pos or position or rep .
+	@pos := @pos w @dot .
+	@page := page .
+	@comm := com w @dot . 
+	@comm := comm w @dot . 
+	@comm := odl w @dot . 
+	@comm := job w @dot . 
+	@comm := commessa or odl or job .
+	@fig := fig w @dot . 
+	@fig := drw w @dot . 
+	@fig := figura or fig or figure or drawing or drw or drwg . 
+	@bill := facture or @order or factures .
+
+	rule code_in_parenthesys
+		pattern : @openr w H#CODE w @closer .
+		replace "T#TEXT" with "H#BLANK"
+##		on @openr remove "T#TEXT" 
+##		on @openr add "H#BLANK" 
+##		on @closer remove "T#TEXT" 
+##		on @closer add "H#BLANK" 
+
+	rule ref_code
+		pattern : @ref w H#CODE .
+		pattern : @ref w @seqno .
+		pattern : @ref w @colon w H#CODE .
+		pattern : @ref w @colon w @seqno .
+		pattern : @ref w @pound w H#CODE .
+		pattern : @ref w @pound w @seqno .
+		pattern : @ref w @n w H#CODE .
+		pattern : @ref w @n w @seqno .
+		on "*" add "H#REF"
+		
+	rule ex_ref
+		pattern : ex w H#REF .
+		on "*" add "H#REF" 
+
+	rule pos_code
+		pattern : @pos w H#CODE .
+		pattern : @pos w @seqno .
+		on "*" add "H#POS"
+
+	rule page_code
+		pattern : @page w H#CODE .
+		pattern : @page w @seqno .
+		pattern : @page w @pound w @seqno .
+		on "*" add "H#PAGE"
+
+	rule figure_code
+		pattern : @fig w H#CODE .
+		pattern : @fig w @seqno .
+		pattern : @fig w @pound w @seqno .
+		on "*" add "H#FIGURE"
+
+	rule comm_code
+		pattern : @comm w H#CODE .
+		pattern : @comm w @seqno .
+		pattern : @comm w @pound w @seqno .
+		on "*" add "H#COMM"
+
+	rule bill_code
+		pattern : @bill w @n w @hyphen w H#CODE .
+		pattern : @bill w @n w @hyphen w @seqno .
+		pattern : @bill w @n w H#CODE .
+		pattern : @bill w @n w @seqno .
+		pattern : @bill w @pound w H#CODE .
+		pattern : @bill w @pound w @seqno .
+		pattern : @bill w H#CODE .
+		pattern : @bill w @seqno .
+		on "*" add "H#BILL"
+
+	rule special_refs
+		@special := <mr\d+> .
+		@special := <ws\d+> .
+		@special := <uru\d+> .
+		pattern : H#BOS w @special .		
+		pattern : @special w H#EOS .
+		on @special add "H#BILL"		
+		
+		
+### administrative rules
+
+	rule reg
+		pattern : @reg .
+		pattern : @bill .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule urgent
+		@u := urgent or urgente .
+		pattern : @u .
+		replace "T#TEXT" with "H#BLANK"
+		
+stage geography loop="false"
+
+	@dcity := H#CITY . 
+	@dcountry := H#COUNTRY . 
+
+	rule cities
+		@n := <n> .
+		pattern : milano or mi or milan .		
+		pattern : "point noire" .		
+		pattern : "pointe noire" .		
+		pattern : "p @dot noire" .		
+		pattern : "p @dot @n @dot" .		
+		pattern : aberdeen .		
+		pattern : dammam .
+		pattern : piscataway or pisc .
+		pattern : baku .
+		pattern : aktau .
+		on "*" add "H#CITY"		
+
+	rule countries
+		pattern : it or italy or italia or italie .		
+		pattern : uk .		
+		pattern : us or usa .		
+		pattern : ksa or uae.		
+		pattern : <u\.a\.e\.?> .		
+		pattern : congo or cg .		
+		pattern : azerbaijan .
+		pattern : "the netherland" .
+		pattern : sco .
+		pattern : kazakhstan or kz.
+		on "*" add "H#COUNTRY"		
+
+	rule issues
+		pattern : CITY#ball .
+		on "*" remove "H#CITY" 
+
+stage services loop="false"
+
+	@sep := @hyphen .
+
+	rule frame_service_agreement
+		pattern : "contrat cadre" . 
+		pattern : "frame @service agreement" .
+		pattern : "f @dot s @dot a @dot" .
+		on "*" add "H#CONTRACT"
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#service"
+		 
+	rule frame_agreement		 
+		pattern : "frame agreement" .
+		on "*" add "H#CONTRACT"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule contract_for		 
+		pattern : "H#CONTRACT @for" .
+		pattern : "H#CONTRACT @of" .
+		on "*" add "H#CONTRACT"
+		replace "T#TEXT" with "H#BLANK"
+		 
+	rule contract_number
+		pattern : H#CONTRACT w @sep w H#CODE .
+		pattern : H#CONTRACT w H#CODE .
+		on "*" add "H#CONTRACT"
+		on "H#CODE" remove "T#TEXT"
+		on "H#CODE" add "H#BLANK"
+		
+	rule service_contract		 
+		pattern : H#CONTRACT 3n @service .
+		on "*" add "H#CONTRACT"
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#service"
+
+	rule agency_services
+		@s := @service or H#CONTRACT .		 
+		pattern : agency w @s 2w H#COUNTRY 2w @yearno .
+		pattern : agency w @s 2w H#CITY 2w @yearno .
+		pattern : agency w @s 2w H#COUNTRY .
+		pattern : agency w @s 2w H#CITY .
+		pattern : agency w @s 2w @yearno .
+		pattern : agency w @yearno .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#agency services"
+		
+stage transportation loop="false"
+	
+	@sep := @comma or @slash or @hyphen or to .
+	@dest := H#CITY w @comma w @openr w @bigram w @closer .
+	@dest := H#CITY w @openr w @bigram w @closer .
+	@dest := H#CITY w @openr w @letter w @closer .
+	@dest := H#CITY w @openr w H#COUNTRY w @closer .
+	@dest := H#COUNTRY w @openr w H#CITY w @closer .
+	@dest := H#CITY w @openr w H#CITY w @closer .
+	@dest := H#CITY w @sep w H#COUNTRY .
+	@dest := H#CITY w @sep w H#CITY .
+	@dest := H#CITY w H#COUNTRY .
+	@dest := H#CITY w H#CITY .
+	@dest := H#CITY .
+	@dest := H#COUNTRY .
+	@airport := aeroporto or airport or airp or apt .
+	@airport := @airport w @dot .
+	@dest := @dest w @airport .
+	@dest := @airport w @dest .
+
+	@transport := transportation or transport or transports . 
+	@transport := trasporto or trasporti .
+	
+	@air := air or aereo or airplane or airplanes or @airport. 
+
+	rule destination
+		pattern : @from 2w @dest 2w @to 2w @dest .
+		pattern : exw w @dest w @sep w @dest .
+		pattern : fob w @dest w @sep w @dest .
+		pattern : @dest w "in transit to" w @dest .
+		pattern : @dest w via w @dest .
+		pattern : @dest w @sep w @dest .
+		pattern : ex w @dest w @dest .
+		pattern : @dest w @dest .
+		### pattern : H#CITY w @sep w H#COUNTRY w H#CITY w @sep H#COUNTRY .
+		### ABERDEEN-UK / CONGO
+		### pattern : H#CITY w @sep w H#COUNTRY w @sep w H#CITY .
+		### ABERDEEN-UK / CONGO
+		### pattern : H#CITY w @sep w H#COUNTRY w @sep w H#COUNTRY .
+		### ABERDEEN-UK MALTA
+		### pattern : H#CITY w @sep w H#COUNTRY w H#COUNTRY .
+		### ABERDEEN / SOYO, ANGOLA
+		### pattern : H#CITY w @sep w H#CITY w @sep H#COUNTRY .
+		### ABERDEEN / DOHA
+		### pattern : H#CITY w @sep w H#CITY .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "B#logistics service" 
+		on "*" add "H#LOGISTICS"
+		
+	rule transport_frame_agreement
+		pattern : @transport 3n H#CONTRACT 3n @dest . 
+		pattern : @transport 3n H#CONTRACT .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "B#logistics service" 
+		on "*" add "H#LOGISTICS"
+		 
+	rule air_transport
+		pattern : @air 3n @transport .
+		pattern : @air n H#LOGISTICS .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#air transport" 
+		
+		
+stage dimensions loop="false"
+
+	@sep := @colon or @equals or @dot.
+	@specifier := size or dimension or dimensioni .
+	@specifier := "@specifier @colon" .
+
+	rule dim
+		pattern : "H#NUMBER x H#NUMBER x H#NUMBER" .
+		pattern : "H#NUMBER x H#NUMBER" .
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+		
+	rule number_uom
+		pattern : "H#NUMBER @uom" .
+		pattern : "@uom H#NUMBER" .
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule inches
+		pattern : H#INCHES .
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule length_dim
+		@target := @length .
+		pattern : H#DIMENSIONS w @sep w @target .
+		pattern : @target w @sep w H#DIMENSIONS .
+		pattern : H#DIMENSIONS w @target .
+		pattern : @target w H#DIMENSIONS .
+		on "*" add "H#LENGTH"
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule thick_dim
+		@target := @thickness .
+		pattern : H#DIMENSIONS w @sep w @target .
+		pattern : @target w @sep w H#DIMENSIONS .
+		pattern : H#DIMENSIONS w @target .
+		pattern : @target w H#DIMENSIONS .
+		on "*" add "H#THICKNESS"
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule diameter_dim
+		@target := @diameter .
+		pattern : H#DIMENSIONS w @sep w @target .
+		pattern : @target w @sep w H#DIMENSIONS .
+		pattern : H#DIMENSIONS w @target .
+		pattern : @target w H#DIMENSIONS .
+		on "*" add "H#DIAMETER"
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule thread_dim
+		@target := @thread .
+		pattern : H#NUMBER w @sep w @target .
+		pattern : @target w @sep w H#NUMBER .
+		pattern : H#NUMBER w @target .
+		pattern : @target w H#NUMBER .
+		on "*" add "H#THREAD"
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule generic_dim
+		pattern : H#DIMENSIONS w @sep w @specifier .
+		pattern : @specifier w @sep w H#DIMENSIONS .
+		pattern : H#DIMENSIONS w @specifier .
+		pattern : @specifier w H#DIMENSIONS .
+		on "*" add "H#SIZE"
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule dim_x_dim
+		pattern : "H#DIMENSIONS x H#DIMENSIONS x H#DIMENSIONS" .
+		pattern : "H#DIMENSIONS x H#DIMENSIONS" .
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule nuts_and_bolts_dim
+		@match := <m\d+> .
+		pattern : "@match x H#DIMENSIONS" . 
+		on "*" add "H#DIMENSIONS"
+		replace "T#TEXT" with "H#BLANK"
+		
+stage piping loop="false"
+
+	rule nps_1
+		pattern : "@nps @colon H#INCHES" .
+		pattern : "@nps @colon H#NUMBER" .
+		pattern : "@nps H#INCHES" .
+		pattern : "@nps H#NUMBER" .
+		pattern : "@nps @colon @inches" .
+		pattern : "@nps @colon @number @hyphen @number @slash @number" .
+		pattern : "@nps @colon @number @slash @number" .
+		pattern : "@nps @colon @number" .
+		pattern : "@nps @colon @dot @seqno" .
+		pattern : "@inches @nps" .
+		on "*" add "H#NPS"
+		replace "T#TEXT" with "H#BLANK"
+
+	rule schedule_base
+		pattern : "@schedule @slash wt @colon" .
+		pattern : "@schedule @slash wt" .
+		pattern : "@schedule @colon" .
+		pattern : @schedule .
+		on "*" add "H#SCHEDULE"
+		
+	rule s10
+		@target := 10 or 10s .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 10"  		
+	
+	rule s20
+		@target := 20 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 20"  		
+
+	rule s30
+		@target := 30 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 30"  		
+
+	rule s40
+		@target := 40 or 40s or std .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		pattern : "standard H#SCHEDULE" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 40"  		
+
+	rule s60
+		@target := 60 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 60"  		
+
+	rule s80
+		@target := 80 or 80s or xs .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 80"  		
+
+	rule s100
+		@target := 100 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 100"  		
+
+	rule s120
+		@target := 120 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 120"  		
+	
+	rule s140
+		@target := 140 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 140"  		
+
+	rule s160
+		@target := 160 .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule 160"  		
+
+	rule sXXS
+		@target := xxs .
+		pattern : "H#SCHEDULE s @hyphen @target" .
+		pattern : "H#SCHEDULE @target" .
+		on "*" remove "T#TEXT"
+		mark start "T#schedule XXS"
+		
+	rule schedule_unhandled
+		pattern : "H#SCHEDULE H#NUMBER" .
+		on "*" remove "T#TEXT"		  		
+	
+	rule schedule_bidim
+		@target := 10 or 10s or 20 or 30 or 40 or 40s or std or 60 or 80 or 80s or xs or 100 or 120 or 140 or 160 or xxs .
+		pattern : "H#SCHEDULE @target x @target" .
+		on "*" remove "T#TEXT"		  		
+	
+	
+stage patterns loop="false"
+
+	rule raccordi_comp
+		pattern : "racc @dot" .
+		on "*" remove "T#TEXT"
+		mark start "T#raccordo"
+		
+	rule caterpillar
+		@cat := cat .
+		pattern : "@cat @seqno" . 
+		pattern : "@cat H#CODE" .
+		on @cat remove "T#TEXT"
+		on @cat add "T#caterpillar"
+		
+stage professional_services loop="false"
+
+	@expediting := exp or expe or exped or expediting .
+	@inspection := insp or ispe or ispezione or inspection or inspections .
+	@activity := att w @dot .
+	@activity := attività or activity or activities .
+	
+	@sep := @slash or @hyphen .
+
+	rule pipeline
+		@type := p or t or f .
+		@lay := l .
+		pattern : "@type @slash @lay" .
+		on "*" remove "T#TEXT"
+		mark start "T#pipeline assembly"  		
+		
+	rule expediting_inspection
+		pattern : @activity w @expediting w @sep w @inspection .  
+		pattern : @activity w @inspection w @sep w @expediting .  
+		pattern : @inspection w @sep w @expediting 3w @activity.  
+		on "*" remove "T#TEXT"
+		mark start "T#expediting and inspection services"  		
+	
+	rule etudes_d_ingenierie
+		pattern : etudes 3w ingenierie w @word w H#EOS .
+		on "*" remove "T#TEXT"
+		mark start "T#etudes d'ingenierie"  		
+		
+			
+stage fpso loop="false"
+
+	@name := mystras or gimboa or vitoria or nigeria or corea or aquila or golfinho .
+	@name := clov or goliat or munin or diamond or olowi or piles .
+	@fpso := fpso .
+	@project := project or progetto or projet .
+
+	rule fpso
+		pattern : "@name @fpso @project" .
+		pattern : "@fpso @name @project" .
+		pattern : "@name @fpso" .
+		pattern : "@fpso @name" .
+		pattern : "@fpso" .
+		on "*" add "H#FPSO"
+		
+	rule fpso_mapping
+		pattern : H#FPSO .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#fpso"	
+		
+	
+stage vessels loop="false"
+		
+	rule vessels_en
+		@vessel := "<m> @slash <v>" .
+		@vessel := "<m> @slash <s>" . 
+		@vessel := mv or ms . 
+		pattern : H#BOS w @vessel .
+		on @vessel remove "T#TEXT"
+		mark end "T#motor vessel"
+
+	rule vessels_it
+		@vessel := "<m> @slash <n>" .
+		@vessel := mn or ms . 
+		pattern : H#BOS w @vessel .
+		on @vessel remove "T#TEXT"
+		mark end "T#motor vessel"
+		
+	rule s7k_3k
+		pattern : "s 7000" . 
+		pattern : "s 3000" .
+		pattern : s7000 or s3000 .
+		pattern : s7k or s3k .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#crane vessel"
+		
+	rule s10k_12k
+		pattern : "s 10000" . 
+		pattern : "s 12000".
+		pattern : s10000 or s12000 .
+		pattern : s10k or s12k .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#drillship"
+	
+	rule scarabeo
+		pattern : "scarabeo @number".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#semi-submersible drilling rig"
+
+	rule perro_negro
+		pattern : "perro negro @number".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#self elevating drilling platform"
+
+	rule castoro
+		pattern : "castoro @number".
+		pattern : "castoro @rnumber".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#pipelay vessel"
+
+	rule ersai
+		pattern : "ersai @hyphen @number".
+		pattern : "ersai @number".
+		pattern : ersai .
+		on "*" add "H#ERSAI"
+		
+	rule ersai_mapping
+		pattern : "H#ERSAI vessel" .
+		pattern : H#ERSAI .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "T#barge"
+
+	rule wagenboards
+		pattern : "wagenboard 1 vessel" .
+		pattern : "wagenboard 2" .
+		replace "T#TEXT" with "H#BLANK"		
+
+	rule bar_protector
+		pattern : "bar protector".
+		pattern : barprotector .
+		pattern : "bar p".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#dive support vessel"
+
+	rule normand_cutter
+		pattern : "normand cutter".
+		pattern : normand .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#subsea construction vessel"
+
+	rule far_samson
+		pattern : "far samson".
+		pattern : farsamson .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#subsea support vessel"
+
+	rule grampian_surveyor
+		pattern : "grampian surveyor".
+		pattern : "grampain surveyor".
+		pattern : "g @dot surveyor".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#construction vessel"
+
+
+	rule harvey_discovery
+		pattern : "harvey gulf discovery".
+		pattern : "harvey discovery".
+		pattern : "hg discovery".
+		pattern : harvey .
+		pattern : hg .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#construction vessel"
+
+	rule bourbon_pearl
+		pattern : "bourbon pearl".
+		pattern : "bourbon treste".
+		pattern : "b pearl".
+		pattern : pearl .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#support vessel"
+
+	rule miclyn_endurance
+		pattern : "miclyn endurance".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#support vessel"
+
+	rule various_barges
+		pattern : "s 355" or s355 .
+		pattern : "sb 230" or sb230 .
+		pattern : "s 42" or s42 .
+		pattern : "s 43" or s43 .
+		pattern : "s 44" or s44 .
+		pattern : "s 45" or s45 .
+		pattern : "s 46" or s46 .
+		pattern : "s 47" or s47 .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#vessel"
+
+	rule rov
+		@target_code := @number or H#CODE .
+		@target := triton .
+		@target := innovator .
+		@target := olympian .
+		@target := mrv .
+		@target := discovery .
+		@mono_target := <mrv\d> .
+		@mono_target := <inn\s*\d+> .
+		@mono_target := "flexjet 2" .
+		@mono_target := "flexjet ii" .
+		@mono_target := flexjet .
+		@mono_target := "super mohawk" .
+		pattern : "@target @n @target_code".
+		pattern : "@target @target_code".
+		pattern : "@for @target_code @target".
+		pattern : "@of @target_code @target".
+		pattern : "@mono_target".
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#remotely operated underwater vehicle"
+
+	rule beluga
+		pattern : beluga .
+		replace "T#TEXT" with "H#BLANK"
+		mark start "E#pipeline burial vehicle"
+
+	rule tad
+		@tad := "saipem tad" .
+		@tad_only := tad .
+		@t := @tad or @tad_only .
+		pattern : "@for @tad" .
+		pattern : "@for @tad_only" .
+		pattern : @tad .
+		replace "T#TEXT" with "H#BLANK"
+		on @tad_only add "E#tender assisted drilling barge, vessel"				
+
+	rule barge
+		@barge_code := @number or H#CODE .
+		@barge := "cargo barge" .
+		@barge := barge .
+		pattern : "@barge @n @barge_code".
+		pattern : "@barge @barge_code".
+		pattern : "@for @barge_code @barge".
+		pattern : "@of @barge_code @barge".
+		on @barge_code remove "T#TEXT"
+		on @barge_code add "H#BLANK"   
+
+stage cleaner loop="false"
+
+	rule remove_ref
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#REF .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_pos
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#POS .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_page
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#PAGE .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_figure
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#FIGURE .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_bill
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#BILL .
+		replace "T#TEXT" with "H#BLANK"
+	
+	rule remove_comms
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#COMM  .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_codes
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#BOS w H#CODE  .
+		pattern : H#CODE w H#EOS  .
+		pattern : H#BOS w H#BLANK w H#CODE  .
+		pattern : H#CODE w H#BLANK w H#EOS  .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_starting_numbers		
+		scope 	: [H#BOS][H#EOS] .		
+		@target := @seqno or H#NUMBER .				
+		pattern : H#BOS w H#BLANK w @target w H#BLANK w (@hyphen or @slash)  .
+		pattern : H#BOS w @target w H#BLANK w (@hyphen or @slash)  .
+		pattern : H#BOS w @target w (@hyphen or @slash)  .
+		replace "T#TEXT" with "H#BLANK"
+
+	rule remove_dates
+		scope 	: [H#BOS][H#EOS] .
+		pattern : H#DATE .
+		replace "T#TEXT" with "H#BLANK"
+	
+	rule remove_fase
+		scope 	: [H#BOS][H#EOS] .	
+		@fase := fase or Fase or "f @dot" .
+		pattern : @fase w H#NUMBER .
+   		replace "T#TEXT" with "H#BLANK"
+
+
+
+stage cleaner_prefinal loop="false"
+
+	rule starting_numbers
+		pattern : H#BOS w H#NUMBER .
+		on "H#NUMBER" remove "T#TEXT"
+		on "H#NUMBER" add "H#BLANK"
+
+	rule orphans
+		pattern : @hyphen or @slash or @openr or @closer or @comma or @colon or @pound or @dquote or @part .
+		on "*" add "H#ORPHAN"	
+   			
+stage cleaner_final loop="true"
+
+	rule norm_blank
+		pattern : H#BLANK .
+		on "*" remove "H#ORPHAN"   
+		on "*" remove "H#ORPHAN"   
+   
+	rule remove_orphans
+		@dtext := T#TEXT .
+		@dblank := H#BLANK .
+		@dorphan := H#ORPHAN .
+		pattern : H#ORPHAN w H#BLANK w H#ORPHAN .
+		pattern : H#BOS w H#ORPHAN .
+		pattern : H#BOS w H#BLANK w H#ORPHAN .
+		pattern : H#ORPHAN w H#BLANK w H#EOS .
+		pattern : H#ORPHAN w H#EOS .
+		pattern : H#BLANK w H#ORPHAN w H#BLANK .
+		on "H#ORPHAN" remove "T#TEXT"
+		replace "H#ORPHAN" with "H#BLANK"   
+
+			

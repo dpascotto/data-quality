@@ -1,0 +1,248 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>it.intext</groupId>
+	<artifactId>pattern-matcher</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+
+	<repositories>
+		<repository>
+			<id>intext-develop-server-snapshots</id>
+			<name>intext-develop-server-snapshots</name>
+			<url>http://192.168.9.13:8080/artifactory/intext-snapshots</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</repository>
+		<repository>
+			<id>intext-develop-server-releases</id>
+			<name>intext-develop-server-releases</name>
+			<url>http://192.168.9.13:8080/artifactory/intext-releases</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</repository>
+		<repository>
+			<id>open.iona.m2</id>
+			<name>IONA Open Source Community Release Repository</name>
+			<url>http://repo.open.iona.com/maven2</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</repository>
+		<repository>
+			<id>open.iona.m2-all</id>
+			<name>IONA Open Source Community Dependency Repository</name>
+			<url>http://repo.open.iona.com/maven2-all</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</repository>
+		<repository>
+			<id>open.iona.m2-snapshot</id>
+			<name>IONA Open Source Community Snapshot Repository</name>
+			<url>http://repo.open.iona.com/maven2-snapshot</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</repository>
+		<repository>
+			<id>shibboleth.repos</id>
+			<name>Shibboleth Repository</name>
+			<url>http://shibboleth.internet2.edu/downloads/maven2</url>
+		</repository>
+		<repository>
+			<id>jboss-drools</id>
+			<name>jboss-drools</name>
+			<url>http://repository.jboss.com/maven2/</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<repository>
+			<id>jboss-org</id>
+			<name>jboss-org</name>
+			<url>http://repository.jboss.org/maven2/</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+		<repository>
+			<id>intext-libs-releases</id>
+			<name>intext-libs-releases</name>
+			<url>http://192.168.9.13:8080/artifactory/libs-releases-local</url>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>open.iona.m2</id>
+			<name>IONA Open Source Community Release Repository</name>
+			<url>http://repo.open.iona.com/maven2</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+		</pluginRepository>
+		<pluginRepository>
+			<id>open.iona.m2-all</id>
+			<name>IONA Open Source Community Dependency Repository</name>
+			<url>http://repo.open.iona.com/maven2-all</url>
+		</pluginRepository>
+		<pluginRepository>
+			<id>open.iona.m2-snapshot</id>
+			<name>IONA Open Source Community Snapshot Repository</name>
+			<url>http://repo.open.iona.com/maven2-snapshot</url>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+			<releases>
+				<enabled>false</enabled>
+			</releases>
+		</pluginRepository>
+	</pluginRepositories>
+	<dependencies>
+		<!--
+			<dependency> <groupId>it.intext</groupId>
+			<artifactId>patternmatcher.prules</artifactId>
+			<version>0.0.1-SNAPSHOT</version> </dependency>
+		-->
+		<dependency>
+			<groupId>it.intext</groupId>
+			<artifactId>gmatcher-dsl</artifactId>
+			<version>0.2.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-analyzers</artifactId>
+			<version>2.9.1</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>lucene-core</artifactId>
+					<groupId>org.apache.lucene</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-memory</artifactId>
+			<version>2.9.1</version>
+			<exclusions>
+				<exclusion>
+					<artifactId>lucene-core</artifactId>
+					<groupId>org.apache.lucene</groupId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-core</artifactId>
+			<version>2.9.1</version>
+		</dependency>
+		<!--
+			<dependency> <groupId>it.intext</groupId>
+			<artifactId>intext.lucene</artifactId>
+			<version>2.9.1-CUSTOM</version> </dependency>
+		-->
+		<dependency>
+			<groupId>cglib</groupId>
+			<artifactId>cglib-full</artifactId>
+			<version>2.0.2</version>
+		</dependency>
+		<dependency>
+			<groupId>annotations</groupId>
+			<artifactId>annotations</artifactId>
+			<version>7.0.2</version>
+		</dependency>
+
+		<!--
+			<dependency> <groupId>google-collect</groupId>
+			<artifactId>google-collect</artifactId> <version>1.0</version>
+			</dependency>
+		-->
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-surround</artifactId>
+			<version>2.9.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-regex</artifactId>
+			<version>2.9.1</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.apache.cxf</groupId>
+			<artifactId>cxf-common-utilities</artifactId>
+			<version>2.2.9</version>
+		</dependency>
+		<dependency>
+			<groupId>it.intext</groupId>
+			<artifactId>intext-commons</artifactId>
+			<version>0.0.1-SNAPSHOT</version>
+		</dependency>
+		
+	  	<dependency>
+	  		<groupId>org.slf4j</groupId>
+	  		<artifactId>slf4j-api</artifactId>
+	  		<version>1.6.1</version>
+	  	</dependency>
+	  	<dependency>
+	  		<groupId>org.slf4j</groupId>
+	  		<artifactId>slf4j-log4j12</artifactId>
+	  		<version>1.6.1</version>
+	  	</dependency>
+	  	<dependency>
+	  		<groupId>log4j</groupId>
+	  		<artifactId>log4j</artifactId>
+	  		<version>1.2.16</version>
+	  	</dependency>
+		
+	  	<dependency>
+	  		<groupId>com.thoughtworks.xstream</groupId>
+	  		<artifactId>xstream</artifactId>
+	  		<version>1.3.1</version>
+	  	</dependency>
+	</dependencies>
+
+	<build>
+		<defaultGoal>install</defaultGoal>
+
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<configuration>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>1.6</source>
+					<target>1.6</target>
+					<encoding>UTF-8</encoding>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+</project>

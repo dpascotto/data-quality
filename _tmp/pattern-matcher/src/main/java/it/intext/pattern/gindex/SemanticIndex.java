@@ -1,0 +1,785 @@
+package it.intext.pattern.gindex;
+
+import it.intext.commons.collections.Pair;
+import it.intext.pattern.analyzer.PatternMatchAnalyzer;
+import it.intext.pattern.gindex.OffsetPositionTree.OffsetEndPair;
+import it.intext.pattern.gindex.OffsetPositionTree.OffsetPositionException;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.OffsetAttribute;
+import org.apache.lucene.analysis.tokenattributes.TermAttribute;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.FieldSelector;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.TermDocs;
+import org.apache.lucene.index.TermEnum;
+import org.apache.lucene.index.TermFreqVector;
+import org.apache.lucene.index.TermPositionVector;
+import org.apache.lucene.index.TermPositions;
+import org.apache.lucene.index.TermVectorMapper;
+import org.apache.lucene.index.TermVectorOffsetInfo;
+import org.apache.lucene.search.IndexSearcher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.TreeMultimap;
+
+public class SemanticIndex {
+	
+	public static class IntArray implements Comparable<IntArray>{
+		
+		final int[] self;
+		
+		public IntArray(int[] self) {
+			super();
+			this.self = self;
+		}
+
+
+		@Override
+		public int compareTo(IntArray o) {
+			return Arrays.equals(self, o.self) ? 0 :
+				firstDiff(self, o.self);
+		}
+
+
+		private int firstDiff(int[] self2, int[] self3) {
+			for (int j=0; j < Math.min(self2.length, self3.length); j++){
+				int diff = self2[j]-self3[j];
+				if (diff != 0) return diff;
+			}
+			return self2.length - self3.length;
+		}
+		
+	}
+
+	private static final Logger logger = LoggerFactory
+	.getLogger(SemanticIndex.class);
+	public static final String TEXT_FIELD = "text";
+	private HashMap<String,LayerIndex> layerMap = new HashMap<String,LayerIndex>();
+	private HashMap<String,TreeMultimap<String,Integer>> fieldMap = 
+		new HashMap<String,TreeMultimap<String,Integer>>();
+	private TreeMultimap<String,IntArray> segmentMap = new TreeMultimap<String, IntArray>();
+	private TreeMultimap<String,Integer> textMap = new TreeMultimap<String, Integer>();
+	private HashMap<Integer,String> textInverseMap = new HashMap<Integer,String>();
+	private OffsetPositionTree textPositions = new OffsetPositionTree();
+	private boolean changed = false;
+	private SemanticReader reader = null;
+	private int textLength = -1; 
+	private IndexChangeObserver observer;
+	public static final Analyzer DEFAULT_ANALYZER = new PatternMatchAnalyzer(); 
+	
+	public SemanticIndex(){}
+	public SemanticIndex(IndexChangeObserver observer)
+	{
+		this.observer = observer;
+	}
+	
+	public Set<String> getLayersName(){
+		return this.layerMap.keySet();
+	}
+
+	private void indexChanged(){
+		changed = true;
+		if (this.observer != null)
+			this.observer.indexChanged();
+	}
+	
+	public void addField(String fieldName, TokenStream stream) {
+		indexChanged();
+		if (fieldName.equalsIgnoreCase(TEXT_FIELD))
+			addTextField(stream);
+		else
+			fieldMap.put(fieldName, addField(stream));			
+	}
+	
+	public int[] getPositions(int offset, int end)
+	{
+		return textPositions.getPositions(offset, end);
+	}
+	
+	public OffsetEndPair getOffsetEnd(int position){
+		return textPositions.getOffsetEnd(position);
+	}
+	
+	public void addSegmentToText(TokenStream stream, String segmentName){
+		
+		indexChanged();
+		try {
+			if (stream == null)
+				throw new IllegalArgumentException(
+						"token stream must not be null");
+			
+			int pos = textLength >= 0 ? textLength : 0;
+			int offn = pos;
+			while(stream.incrementToken())
+			{
+				TermAttribute term = (TermAttribute) stream.getAttribute(TermAttribute.class);
+				textMap.put(term.term(),pos);
+				textInverseMap.put(pos, term.term());
+				OffsetAttribute offset = (OffsetAttribute)stream.getAttribute(OffsetAttribute.class);
+				logger.debug("Adding term : \"{}\" , {}",term.term(),pos+"("+offset.startOffset()+","+offset.endOffset()+")");
+				try {
+					textPositions.addSequenceTerm(pos, offset.startOffset(), offset.endOffset());
+				} catch (OffsetPositionException e) {
+					logger.error("Error adding term : {},{} to OffsetTree",term.term(),pos);
+				}
+				pos++;
+			}
+			textLength = pos;
+			segmentMap.put(segmentName, new IntArray(new int[]{offn,pos-1}));
+			
+		}catch (IOException e) { // can never happen
+			throw new RuntimeException(e);
+		} finally {
+			try {
+				if (stream != null)
+					stream.close();
+			} catch (IOException e2) {
+				throw new RuntimeException(e2);
+			}
+		}
+		
+	}
+
+	public void addTextField(TokenStream stream)
+	{
+		indexChanged();
+		try {
+			if (stream == null)
+				throw new IllegalArgumentException(
+						"token stream must not be null");
+
+			textMap.clear();
+			textInverseMap.clear();
+			textPositions.clear();
+			int pos = 0;
+			while(stream.incrementToken())
+			{
+				TermAttribute term = (TermAttribute) stream.getAttribute(TermAttribute.class);
+				textMap.put(term.term(),pos);
+				textInverseMap.put(pos, term.term());
+				OffsetAttribute offset = (OffsetAttribute)stream.getAttribute(OffsetAttribute.class);
+				logger.trace("Adding term : \"{}\" , {}",term.term(),pos+"("+offset.startOffset()+","+offset.endOffset()+")");
+				try {
+					textPositions.addSequenceTerm(pos, offset.startOffset(), offset.endOffset());
+				} catch (OffsetPositionException e) {
+					logger.error("Error adding term : {},{} to OffsetTree",term.term(),pos);
+				}
+				pos++;
+			}
+			textLength = pos;
+			segmentMap.put(TEXT_FIELD,new IntArray(new int[]{0, pos-1}));
+
+		} catch (IOException e) { // can never happen
+			throw new RuntimeException(e);
+		} finally {
+			try {
+				if (stream != null)
+					stream.close();
+			} catch (IOException e2) {
+				throw new RuntimeException(e2);
+			}
+		}
+	}
+
+	private  TreeMultimap<String,Integer> addField(TokenStream stream) {
+		try {
+			if (stream == null)
+				throw new IllegalArgumentException(
+				"token stream must not be null");
+
+			//TreeMultimap<String,Integer> terms = TreeMultimap.create();
+			TreeMultimap<String,Integer> terms = new TreeMultimap<String,Integer>();
+			int pos = 0;
+			while(stream.incrementToken())
+			{
+				TermAttribute term = (TermAttribute) stream.getAttribute(TermAttribute.class);
+				terms.put(term.term(),pos);
+				pos++;
+			}			
+			return terms;			
+		} catch (IOException e) { // can never happen
+			throw new RuntimeException(e);
+		} finally {
+			try {
+				if (stream != null)
+					stream.close();
+			} catch (IOException e2) {
+				throw new RuntimeException(e2);
+			}
+		}
+	}
+
+	public boolean addLayer(String layerName){
+		if (!layerMap.containsKey(layerName))
+			layerMap.put(layerName, new LayerIndex(layerName,observer));
+		else
+			return false;
+		return true;
+	}
+
+	public LayerIndex getLayer(String layerName)
+	{
+		return this.layerMap.get(layerName);
+	}
+	
+	protected String getTextTermAt(int position)
+	{
+		return textInverseMap.get(position);
+	}
+	
+	public String getTextIn(int startPosition, int endPosition)
+	{
+		StringBuffer buf = new StringBuffer();
+		for (int i=startPosition; i <= endPosition; i++)
+			buf.append(getTextTermAt(i)+" ");
+		return buf.toString().trim();
+	}
+
+	public class SemanticReader extends IndexReader{
+		
+		private final Term MATCH_ALL_TERM = new Term("", "");
+		protected HashMap<String,LayerIndex> layers = layerMap;
+		
+		protected String getTextTermAt(int position)
+		{
+			return textInverseMap.get(position);
+		}
+		
+		public SortedSet<Integer> getCommonIndexPositions(List<Pair<String,String>> layerTerm)
+		{
+			SortedSet<Integer> iset = new TreeSet<Integer>();
+			for (int p : getCommonPositions(layerTerm)){
+				iset.add(p);
+			}
+			return iset;
+		}
+		
+		public String getTextIn(int startPosition, int endPosition)
+		{
+			StringBuffer buf = new StringBuffer();
+			for (int i=startPosition; i < endPosition; i++)
+				buf.append(getTextTermAt(i)+" ");
+			return buf.toString().trim();
+		}
+		
+		public OffsetEndPair getOffset(int position)
+		{
+			return textPositions.getOffsetEnd(position);
+		}
+		
+		protected int getTextLength() {
+			return textLength;
+		}
+		
+		public SortedSet<Integer> getSegmentPositions(String segmentName){
+			SortedSet<Integer> ret = new TreeSet<Integer>();
+			SortedSet<IntArray> pps = segmentMap.get(segmentName);
+			if (pps == null)
+				return ret;
+			for (IntArray ppa : pps){
+				int[] pp = ppa.self;
+				for (int idx = pp[0]; idx <= pp[1]; idx++)
+					ret.add(idx);
+			}
+			
+			return ret;
+		}
+		
+		@Override
+		protected void doClose() throws IOException {
+			logger.warn("doClose() called on SemanticReader");					
+		}
+
+		@Override
+		protected void doCommit() throws IOException {
+			logger.warn("doCommit() called on SemanticReader");			
+		}
+
+		@Override
+		protected void doDelete(int docNum) throws CorruptIndexException,
+		IOException {
+			logger.warn("doDelete(int docNum) called on SemanticReader");			
+		}
+
+		@Override
+		protected void doSetNorm(int doc, String field, byte value)
+		throws CorruptIndexException, IOException {
+			logger.warn("doSetNorm(..) called on SemanticReader");				
+		}
+
+		@Override
+		protected void doUndeleteAll() throws CorruptIndexException,
+		IOException {
+			logger.warn("doUndeleteAll() called on SemanticReader");			
+		}
+
+		@Override
+		public int docFreq(Term t) throws IOException {
+			if (t.field().equalsIgnoreCase(TEXT_FIELD))
+				if (textMap.containsKey(t.text()))
+					return textMap.get(t.text()).size();
+				else
+					return 0;
+			if (fieldMap.containsKey(t.field())
+					&& fieldMap.get(t.field()).containsKey(t.text()))
+				return fieldMap.get(t.field()).get(t.text()).size();
+			return 0;
+		}
+
+		@Override
+		public Document document(int n, FieldSelector fieldSelector)
+		throws CorruptIndexException, IOException {
+			logger.warn("document(..) called on SemanticReader");
+			return null;
+		}
+
+		@Override
+		public Collection<String> getFieldNames(FieldOption fldOption) {
+			logger.warn("getFieldNames(FieldOption fldOption) called on SemanticReader");
+			return null;
+		}
+
+		@Override
+		public TermFreqVector getTermFreqVector(int docNumber, String field)
+		throws IOException {
+			final String fieldName = field;
+			if (fieldName.equalsIgnoreCase(TEXT_FIELD)){
+				return new TermPositionVector() {
+
+					public TermVectorOffsetInfo[] getOffsets(int index) {
+						return null;
+					}
+
+					public int[] getTermPositions(int index) {
+						String term = getTerms()[index];
+						SortedSet<Integer> ret = textMap.get(term);
+						return ret == null ? null : toIntArray(ret);					
+					}
+
+					public String getField() {
+						return fieldName;
+					}
+
+					public int[] getTermFrequencies() {
+						SortedSet<String> terms = textMap.keySet();
+						int[] vals = new int[terms.size()];
+						Iterator<String> tIt = terms.iterator();
+						for (int j = 0; j < terms.size(); j++)
+						{
+							vals[j] = textMap.get(tIt.next()).size();
+						}
+						return vals;
+					}
+
+					public String[] getTerms() {
+						SortedSet<String> terms = textMap.keySet();
+						return toStringArray(terms);
+
+					}
+
+					public int indexOf(String term) {
+						SortedSet<Integer> poss = textMap.get(term);
+						return poss == null ? -1 : poss.first();
+					}
+
+					public int[] indexesOf(String[] terms, int start, int len) {
+						int[] indexes = new int[len];
+						for (int i = 0; i < len; i++) {
+							indexes[i] = indexOf(terms[start++]);
+						}
+						return indexes;
+					}
+
+					public int size() {
+						return textMap.keySet().size();
+					}
+
+				};
+			}else
+			return new TermPositionVector() {
+
+				public TermVectorOffsetInfo[] getOffsets(int index) {
+					return null;
+				}
+
+				public int[] getTermPositions(int index) {
+					String term = getTerms()[index];
+					SortedSet<Integer> ret = fieldMap.get(fieldName).get(term);
+					return ret == null ? null : toIntArray(ret);					
+				}
+
+				public String getField() {
+					return fieldName;
+				}
+
+				public int[] getTermFrequencies() {
+					SortedSet<String> terms = fieldMap.get(fieldName).keySet();
+					int[] vals = new int[terms.size()];
+					Iterator<String> tIt = terms.iterator();
+					for (int j = 0; j < terms.size(); j++)
+					{
+						vals[j] = fieldMap.get(fieldName).get(tIt.next()).size();
+					}
+					return vals;
+				}
+
+				public String[] getTerms() {
+					SortedSet<String> terms = fieldMap.get(fieldName).keySet();
+					return toStringArray(terms);
+
+				}
+
+				public int indexOf(String term) {
+					SortedSet<Integer> poss = fieldMap.get(fieldName).get(term);
+					return poss == null ? -1 : poss.first();
+				}
+
+				public int[] indexesOf(String[] terms, int start, int len) {
+					int[] indexes = new int[len];
+					for (int i = 0; i < len; i++) {
+						indexes[i] = indexOf(terms[start++]);
+					}
+					return indexes;
+				}
+
+				public int size() {
+					return fieldMap.get(fieldName).keySet().size();
+				}
+
+			};
+		}
+
+		@Override
+		public void getTermFreqVector(int docNumber, TermVectorMapper mapper)
+		throws IOException {
+			getTermFreqVector(docNumber, TEXT_FIELD, mapper);
+			for (String field : fieldMap.keySet())
+				getTermFreqVector(docNumber, field, mapper);
+		}
+
+		@Override
+		public void getTermFreqVector(int docNumber, String field,
+				TermVectorMapper mapper) throws IOException {
+			if (docNumber == 0){
+				if (field.equalsIgnoreCase(TEXT_FIELD)){
+					mapper.setExpectations(field, textMap.size(), false, true);
+					for (String term : textMap.keySet())
+					{
+						mapper.map(term, textMap.get(term).size(), null, 
+								toIntArray(textMap.get(term)));
+					}
+				}else{
+				mapper.setExpectations(field, fieldMap.get(field).size(), false, true);
+				for (String term : fieldMap.get(field).keySet())
+				{
+					mapper.map(term, fieldMap.get(field).get(term).size(), null, 
+							toIntArray(fieldMap.get(field).get(term)));
+				}
+				}
+			}
+		}
+
+		@Override
+		public TermFreqVector[] getTermFreqVectors(int docNumber)
+		throws IOException {
+			TermFreqVector[] vectors = new TermFreqVector[fieldMap.keySet().size()+1];
+			int j=0;
+			for (String field : fieldMap.keySet()){
+				vectors[j] = getTermFreqVector(docNumber, field);
+				j++;
+			}
+			vectors[j+1] = getTermFreqVector(docNumber, TEXT_FIELD);
+			return vectors;
+		}
+
+		@Override
+		public boolean hasDeletions() {
+			logger.warn("hasDeletions() called on SemanticReader");		
+			return false;
+		}
+
+		@Override
+		public boolean isDeleted(int n) {
+			logger.warn("isDeleted() called on SemanticReader");	
+			return false;
+		}
+
+		@Override
+		public int maxDoc() {
+			return 1;
+		}
+
+		@Override
+		public byte[] norms(String field) throws IOException {
+			//logger.warn("norms(String field) called on SemanticReader");	
+			return null;
+		}
+
+		@Override
+		public void norms(String field, byte[] bytes, int offset)
+		throws IOException {
+			//logger.warn("norms(...) called on SemanticReader");
+		}
+
+		@Override
+		public int numDocs() {
+			return textMap.isEmpty() && fieldMap.isEmpty() ? 0 : 1;
+		}
+
+		@Override
+		public TermDocs termDocs() throws IOException {
+			return termPositions();
+		}
+
+		@Override
+		public TermPositions termPositions() throws IOException {
+			return new TermPositions() {
+
+				private Iterator<Integer> posit;
+				private SortedSet<Integer> positionsArr;
+
+				public byte[] getPayload(byte[] data, int offset)
+				throws IOException {
+					logger.warn("getPayload(...) called on TermPositions[SemanticReader]");
+					return null;
+				}
+
+				public int getPayloadLength() {
+					return 0;
+				}
+
+				public boolean isPayloadAvailable() {
+					return false;
+				}
+
+				public int nextPosition() throws IOException {
+					return posit == null ? -1 : posit.next();
+				}
+
+				public void close() throws IOException {										
+				}
+
+				public int doc() {
+					return 0;
+				}
+
+				public int freq() {
+					return positionsArr.size();
+				}
+
+				public boolean next() throws IOException {
+					return (posit == null ? false : 
+						posit.hasNext());
+				}
+
+				public int read(int[] docs, int[] freqs) throws IOException {
+					docs[0] = 0;
+					freqs[0] = freq();
+					return 1;
+				}
+
+				public void seek(Term term) throws IOException {
+					if (term.field().equalsIgnoreCase(TEXT_FIELD)){
+					SortedSet<Integer> poss = textMap.get(term.text());
+					if (poss != null)
+					{
+						this.positionsArr = poss;
+						this.posit = poss.iterator();
+					}
+					}else{
+						SortedSet<Integer> poss = fieldMap.get(term.field()).get(term.text());
+						if (poss != null)
+						{
+							this.positionsArr = poss;
+							this.posit = poss.iterator();
+						}
+					}
+				}
+
+				public void seek(TermEnum termEnum) throws IOException {
+					seek(termEnum.term());
+				}
+
+				public boolean skipTo(int target) throws IOException {
+					return next();
+				}
+
+			};
+
+		}
+
+		@Override
+		public TermEnum terms() throws IOException {
+			return terms(MATCH_ALL_TERM);
+		}
+
+		@Override
+		public TermEnum terms(Term t) throws IOException {
+			final Term ft = t; 
+			return  
+				new TermEnum(){
+
+				private SortedSet<String> poss = ft.field().equalsIgnoreCase(TEXT_FIELD) ? 
+					textMap.keySet().tailSet(ft.text()) : 
+						fieldMap.get(ft.field()).keySet().tailSet(ft.text());
+				private Iterator<String> possIt = poss.iterator();
+
+				@Override
+				public void close() throws IOException {					
+				}
+
+				@Override
+				public int docFreq() {
+					if (poss == null || poss.isEmpty())
+						return 0;
+					return ft.field().equalsIgnoreCase(TEXT_FIELD) 
+					? textMap.get(poss.first()).size() : 
+						fieldMap.get(ft.field()).get(poss.first()).size();
+				}
+
+				@Override
+				public boolean next() throws IOException {
+//					if (poss.size() > 1)
+//					{
+//						System.out.println("Got poss : "+poss);
+//						poss = poss.tailSet(poss.first()+1);
+//						System.out.println("Pruned poss : "+poss);
+//						return true;
+//					}
+//					return false;
+					return possIt.hasNext();
+				}
+
+				@Override
+				public Term term() {
+					return new Term(ft.field(),possIt.next());
+				}
+
+			};
+		}
+
+	}
+	
+	public int[] getLayerTermInnerPositions(String term, String layer, int startPosition, int endPosition)
+	{
+		if (term.equals("*"))
+		{
+			LayerIndex idx = layerMap.get(layer);
+			if (idx == null)
+				return null;
+			List<Integer> rList = new ArrayList<Integer>();
+			for (int ps : idx.getAllPositions())
+				if (ps >= startPosition && ps <= endPosition)
+					rList.add(ps);
+			int[] ret = toIntArray(rList);
+			Arrays.sort(ret);
+			return ret;
+			
+		}
+		return !layerMap.containsKey(layer) ? null : layerMap.get(layer)
+				.getInnerPositions(term, startPosition, endPosition);
+	}
+	
+	/*
+	 * Pair of Layer(a) and Term(b)
+	 */
+	public int[] getCommonPositions(List<Pair<String,String>> layerTerm)
+	{
+		if (layerTerm == null)
+			return null;
+		if (layerTerm.size() == 1)
+			return layerMap.get(layerTerm.get(0).a()).getPositions(layerTerm.get(0).b());
+		
+		HashMap<Integer,Integer> posMap = new HashMap<Integer,Integer>();
+		
+		for (int j = 0; j < layerTerm.size(); j++)
+		{
+			int[] posses = layerTerm.get(j).a().equalsIgnoreCase(SemanticIndex.TEXT_FIELD) ? 
+					toIntArray(textMap.get(layerTerm.get(j).b())) :  
+				layerMap.get(layerTerm.get(j).a()).getPositions(layerTerm.get(j).b());
+			if (posses == null)
+				return new int[0];
+			for (int pos :  posses)
+			{
+				if (!posMap.containsKey(pos))
+				{
+					if (j == 0)
+						posMap.put(pos, 1);
+				}else
+				{
+					int count = posMap.get(pos);
+					if (count < j)
+						posMap.remove(pos);
+					else
+						posMap.put(pos, count+1);
+				}						
+			}
+		}
+		int[] psSet = toIntArray(posMap.keySet());
+		for (int pos : psSet){
+			if (posMap.get(pos) < layerTerm.size())
+				posMap.remove(pos);
+		}
+		
+		int[] ret = toIntArray(posMap.keySet());
+		Arrays.sort(ret);
+		return ret;		
+	}
+	
+	private int[] toIntArray(final Collection<Integer> ct){
+		int[] ret = new int[ct.size()];
+		Iterator<Integer> it = ct.iterator();
+		for (int j=0; j < ct.size(); j++)
+			ret[j] = it.next();
+		return ret;
+	}
+	
+	private String[] toStringArray(final Collection<String> ct){
+		String[] ret = new String[ct.size()];
+		Iterator<String> it = ct.iterator();
+		for (int j=0; j < ct.size(); j++)
+			ret[j] = it.next();
+		return ret;
+	}
+	
+	public IndexReader getReader(){
+		SemanticReader rreader = (changed || reader == null) ? 
+		new SemanticReader() : reader;
+		reader = rreader;
+		changed = false;
+		return reader;
+	}
+
+	public IndexSearcher getSearcher(){
+		return new IndexSearcher(getReader());
+	}
+
+	public int getTextLength() {
+		return textLength;
+	}
+//	public TreeMultimap<String, int[]> getSegmentMap() {
+//		return segmentMap;
+//	}
+//	protected void setSegmentMap(TreeMultimap<String, int[]> segmentMap) {
+//		this.segmentMap = segmentMap;
+//	}
+	
+	
+
+}

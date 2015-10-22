@@ -1,0 +1,104 @@
+@quoted := <[\"‘'’„“”«»]> .
+@dot := <[\.]> .
+@comma := <[,]> .
+@colon := <[\:]> .
+@semicolon := <[\;]> .
+@and := <and|&|&&|e|&amp;> .
+@camel := <^[A-Z]([a-z_\-&].?)+?> .
+@number := <^[0-9]+?> .
+@rnumber := <^[mMiIvVxXlLcCdD]+?> .
+@month_it := <[Gg]en(nnaio)?|[Ff]eb(braio)?|[Mm]ar(zo)?|[Aa]pr(ile)?|[Mm]ag(gio)?|[Gg]iu(gno)?|[Ll]ug(glio)|[Aa]go(sto)?|[Ss]et(tembre)?|[Oo]tt(obre)?|[Nn]ov(embre)?|[Dd]ic(embre)? (\.)?> .
+@month_en := <[Jj]an(uary)?|[Ff]eb(ruary)?|[Mm]ar(ch)?|[Aa]pr(il)?|[Mm]ay|[Jj]un(e)?|[Jj]ul(y)?|[Aa]ug(ust)?|[Ss]ep(tember)?|[Oo]ct(ober)?|[Nn]ov(ember)?|[Dd]ic(ember)? (\.)?> .
+@capitalone := <[A-Z]> .
+@ropen := <\(> .
+@rclose := <\)> .
+@qopen := [ .
+@qclose := ] .
+@yearn := <(14|15|16|17|18|19|20)[0-9][0-9]> .
+@dayn := <^[0-3]?[0-9]> .
+@monthn := <[0-9]|10|11|12> .
+@ivl := <[0-9]+\-[0-9]+> .
+
+
+stage simple loop="true"
+	
+	rule interval oneshot="true"
+		pattern : @ivl .
+		pattern : w(@number, -, @number) .	
+		pattern : w(@number, @comma, @number) .
+		on "*" add "HL#INTERVAL"
+		
+	rule date oneshot="true"
+		@d1 := <^[0-9][0-9]\-[0-9][0-9]\-(14|15|16|17|18|19|20)[0-9][0-9]> .
+		@d2 := <^(14|15|16|17|18|19|20)[0-9][0-9]\-[0-9][0-9]\-[0-9][0-9]> .
+		pattern :  @d1 .
+		pattern :  @d2 .
+		pattern : 3w((@month_it or @month_en or @monthn), @dayn, @comma, @yearn) .
+		pattern : 3w(@yearn, (@month_it or @month_en or @monthn), @dayn) .
+		pattern : 3w(@dayn, (@month_it or @month_en or @monthn), @yearn) .
+		on "*" add "HL#DATE"
+		
+	rule pages oneshot="true"
+		pattern : <[pP]> w @dot w @number .
+		pattern : <[pP]+> w @dot w HL#INTERVAL .
+		pattern : <[pP]+> w HL#INTERVAL .
+		on "*" add "BIB#PAGE_INTERVAL.High"
+	
+	rule initial
+		constrain : @capitalone .
+		pattern : @capitalone w @dot .
+		pattern : HL#INITIAL w HL#INITIAL .
+		on "*" add "HL#INITIAL"
+	
+	rule authHelpers
+		pattern : "a cura di" .
+		pattern : "ed @dot" .
+		pattern : "eds @dot" .
+		pattern : <[Hh]rgs> .
+		pattern : "et al @dot" .
+		pattern : "et alii" .
+		pattern : <[Aa]+> w @dot w <[Vv]+> .
+		pattern : "<[Ii]d> @dot" .
+		pattern : <[Ii]dem> .
+		pattern : <[Ee]ad(em)?> .
+		on "*" add "HL#AUTHOR_MOD"
+		
+	rule journalHelpers
+		pattern : <[Jj]ournal|[Rr]eview|[Rr]ivista|[Cc]uadernos|[Zz]eitschrift> .
+		on "*" add "HL#JOURNAL_CIT"
+	
+	rule journalNoHelpers
+		@jnumber := @number or @rnumber .
+		pattern : "fasc @dot @jnumber"~3 .
+		pattern : "num @dot @jnumber"~3 . 
+		pattern : 3w(<[Nn]o>, @dot, @jnumber) .
+		on "*" add "HL#JOURNAL_NR"
+
+stage authorLow loop="true"
+
+	rule camelAuthor
+		pattern : HL#INITIAL w @camel .
+		pattern : @camel w @comma w HL#INITIAL . 
+		pattern : CIT#AUTHOR w @camel .
+		pattern : CIT#AUHOR w @and w @camel .
+		pattern : CIT#AUHOR w @comma w @camel .
+		pattern : "@camel @and CIT#AUHOR"~3 .
+		pattern : "@camel @comma CIT#AUHOR"~3 .
+	on "*" add "CIT#AUTHOR.Low"
+	
+	rule authorMod
+		pattern : HL#AUTHOR_MOD 5n CIT#AUTHOR.Low .		
+	on "CIT#AUTHOR.Low" upgrade confidence ##Using confidence in target should avoid double upgrade...
+	
+	rule authorMod
+		@test := [Napolitano][Repubblica] .
+		pattern : @test .		
+	on @test add intext "CIT#INTEXT"
+	on @test add "HL#BETWEEN"
+		
+	
+		
+	
+		
+	
+
