@@ -32,6 +32,16 @@ public class ItemVo implements Serializable {
 	 */
 	private ProductGroupVo productGroup;
 	
+	/**
+	 * The reference to the machine
+	 */
+	private MachineVo machine;
+	
+	/**
+	 * The part number flagged as 'main' among those associated to this material
+	 */
+	private String mainPartNumber;
+	
 	public String getUnitOfMeasureCode() {
 		return getUnitOfMeasure().getCode();
 	}
@@ -39,6 +49,15 @@ public class ItemVo implements Serializable {
 	public String getProductGroupCode() {
 		return getProductGroup().getCode();
 	}
+	
+	public String getMachineCode() {
+		return getMachine().getMachineCode();
+	}
+	
+	public String getManufacturerCode() {
+		return getMachine().getManufacturerCode();
+	}
+	
 	
 	/*
 	 * TO STRING
@@ -97,6 +116,22 @@ public class ItemVo implements Serializable {
 
 	public void setProductGroup(ProductGroupVo productGroup) {
 		this.productGroup = productGroup;
+	}
+
+	public MachineVo getMachine() {
+		return machine;
+	}
+
+	public void setMachine(MachineVo machine) {
+		this.machine = machine;
+	}
+
+	public String getMainPartNumber() {
+		return mainPartNumber;
+	}
+
+	public void setMainPartNumber(String mainPartNumber) {
+		this.mainPartNumber = mainPartNumber;
 	}
 	
 	

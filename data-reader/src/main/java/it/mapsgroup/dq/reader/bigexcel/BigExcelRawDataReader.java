@@ -2,8 +2,10 @@ package it.mapsgroup.dq.reader.bigexcel;
 
 import it.mapsgroup.dq.reader.RawDataReader;
 import it.mapsgroup.dq.reader.bigexcel.mapper.ExcelMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.FlatTableMapper;
 import it.mapsgroup.dq.reader.bigexcel.mapper.ItemMapper;
 import it.mapsgroup.dq.vo.ItemVo;
+import it.mapsgroup.dq.vo.SaipemFlatDataVo;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -36,6 +38,11 @@ public class BigExcelRawDataReader<T> implements RawDataReader {
 	@Override
 	public Collection<ItemVo> readAllItems(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
 		return readAll(file, sheetId, firstRowIsHeader, new ItemMapper());
+	}
+	
+	@Override
+	public Collection<SaipemFlatDataVo> readAllItemsFlat(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new FlatTableMapper());
 	}
 	
 	private Collection readAll(String file, String sheetId, boolean firstRowIsHeader, ExcelMapper mapper) throws Exception {

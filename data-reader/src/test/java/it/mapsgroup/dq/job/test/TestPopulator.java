@@ -23,7 +23,8 @@ public class TestPopulator {
 	@Test
 	public void testPopulator() {
 		try {
-			int insertedRows = populator.populateMaterials(FILE_NAME, "rId1", true);
+			int insertedRows = populator.populateFlatTable(SMALL_FILE_NAME, "rId1", true);
+			//int insertedRows = populator.populateMaterials(SMALL_FILE_NAME, "rId1", true);
 					
 			System.out.println("Test OK, inserted records: " + insertedRows);
 		} catch (Exception e) {
