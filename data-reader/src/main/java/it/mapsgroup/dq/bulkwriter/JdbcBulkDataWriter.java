@@ -19,10 +19,7 @@ import org.springframework.stereotype.Service;
 public class JdbcBulkDataWriter implements BulkDataWriter {
 	
 	private Logger log = Logger.getLogger(this.getClass());
-	//	TODO generare file specifico per i fault
-	private Logger faults = Logger.getLogger(this.getClass());
 	
-	//@Autowired DataSource dataSource;
 	@Autowired JdbcTemplate jdbcTemplate;
 
 	@Override
@@ -107,7 +104,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert machine " + machine.getMachineCode(), e);
-				faults.info("Unable to insert machine " + machine.getMachineCode());
 				
 				throw e;
 			}
@@ -132,7 +128,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert manufacturer " + manufacturer.getCode(), e);
-				faults.info("Unable to insert manufacturer " + manufacturer.getCode());
 				
 				throw e;
 			}
@@ -154,7 +149,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert group " + group.getCode(), e);
-				faults.info("Unable to insert group " + group.getCode());
 				
 				throw e;
 			}
@@ -176,7 +170,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert subgroup " + subgroup.getCode(), e);
-				faults.info("Unable to insert subgroup " + subgroup.getCode());
 				
 				throw e;
 			}
@@ -199,7 +192,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert unit of measure " + productGroup.getCode(), e);
-				faults.info("Unable to insert unit of measure " + productGroup.getCode());
 				
 				throw e;
 			}
@@ -227,7 +219,6 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 						);
 			} catch (Exception e) {
 				log.error("Unable to insert unit of measure " + unitOfMeasure.getCode(), e);
-				faults.info("Unable to insert unit of measure " + unitOfMeasure.getCode());
 				
 				throw e;
 			}

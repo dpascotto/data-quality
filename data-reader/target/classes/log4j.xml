@@ -9,10 +9,37 @@
 			<param name="ConversionPattern" value="%d %-5p [%t] %-17c{2} (%13F:%L) %3x - %X{ctx} - %M:%m%n "/>
 		</layout>
 	</appender>
-
-	 
+	
+	<appender name="report.file" class="org.apache.log4j.FileAppender">
+        <param name="file" value="c:/temp/log/report.log" />
+        <param name="append" value="true" />
+        <param name="threshold" value="debug" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{ISO8601} - %m%n" />
+        </layout>
+    </appender>
+    
+	<appender name="fault.file" class="org.apache.log4j.FileAppender">
+        <param name="file" value="c:/temp/log/fault.log" />
+        <param name="append" value="true" />
+        <param name="threshold" value="debug" />
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{ISO8601} %-5p [%c{1}] - %m%n" />
+        </layout>
+    </appender>
+    
+    <logger name="report.logger" additivity="true">
+        <level value="info" />
+        <appender-ref ref="report.file" />
+    </logger>
+    	 
+    <logger name="fault.logger" additivity="true">
+        <level value="info" />
+        <appender-ref ref="fault.file" />
+    </logger>
+    	 
 	<root>
-		<priority value="debug" />
+		<priority value="info" />
 		<appender-ref ref="console" />
 	</root>
 
