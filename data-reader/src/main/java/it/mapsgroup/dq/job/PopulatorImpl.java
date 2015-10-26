@@ -34,6 +34,75 @@ public class PopulatorImpl implements Populator {
 	@Autowired BigExcelRawDataReader excelReader;
 	@Autowired JdbcBulkDataWriter jdbcBulkDataWriter;
 	@Autowired JdbcBulkDataReader jdbcBulkDataReader;
+	
+	@Override
+	public int populateManufacturers(String fileName, String sheetId, boolean firstRowIsHeader, boolean exitOnError) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		reportLogger.info("\r\n\r\n\r\n");
+		reportLogger.info("---------------------------");
+		reportLogger.info("Populate manufacturers started");
+		reportLogger.info("---------------------------");
+		
+		//
+		//	First empty tables
+		//
+		jdbcBulkDataWriter.truncate("MATERIAL");
+		jdbcBulkDataWriter.deleteAll("MACHINE", "MANUFACTURER");
+		
+		//
+		//	Read all records from Excel
+		//
+		log.info("Start reading from " + fileName);
+		Collection<ManufacturerVo> mans = excelReader.readAllManufacturers(fileName, sheetId, firstRowIsHeader);
+		reportLogger.info("Successfully read file " + fileName);
+		
+		int numTot = mans.size();
+		log.info("Number of records read from " + fileName + ": " + numTot);
+		reportLogger.info("About to process " + numTot + " records");
+		
+		//
+		//	Inserting in DB
+		//
+		int numSuccess = 0;
+		int numFailures = 0;
+		for (ManufacturerVo man : mans) {
+			try {
+				jdbcBulkDataWriter.insertManufacturer(man);
+				
+				numSuccess ++;
+				if (numSuccess % 5000 == 0) {
+					reportLogger.info(numSuccess + " records processed (" + _perc(numTot, numSuccess) + ")");
+				}
+			} catch (Exception e) {
+				log.error("Unable to insert item " + man.getCode(), e);
+				faultLogger.error("Unable to insert flat item " + man.getCode());
+				numFailures ++;
+				
+				if (exitOnError) {
+					reportLogger.info("Execution interrupted at flat item " + man.getCode());
+					break;
+				}
+			}
+		}
+		
+		//
+		//	Write a short report
+		//
+		sw.stop();
+		long elapsed = sw.getTotalTimeMillis();
+		reportLogger.info("");
+		reportLogger.info("");
+		reportLogger.info("----------------------");
+		reportLogger.info("   EXECUTION REPORT   ");
+		reportLogger.info("----------------------");
+		reportLogger.info("tot processed records ... " + numTot);
+		reportLogger.info("successfully processed .. " + numSuccess);
+		reportLogger.info("failures ................ " + ((numFailures > 0) ? numFailures : "NO FAILURES"));
+		reportLogger.info("elapsed time ............ " + _formatTime(elapsed));
+		
+		return numSuccess;
+	}
 
 	@Override
 	public int populateFlatTable(String fileName, String sheetId, boolean firstRowIsHeader, boolean exitOnError) throws Exception {
@@ -178,6 +247,8 @@ public class PopulatorImpl implements Populator {
 		reportLogger.info("------------------------------");
 		reportLogger.info("Populate structured DB started");
 		reportLogger.info("------------------------------");
+		
+		jdbcBulkDataWriter.truncate("MATERIAL");
 
 		Collection<SaipemFlatDataVo> flatItems = jdbcBulkDataReader.readAllItemsFromFlatTable();
 		
@@ -257,37 +328,244 @@ public class PopulatorImpl implements Populator {
 			
 			item.setMainPartNumber(flatItem.getMainPartNumber());
 			
-			//	Machine
-			MachineVo m = new MachineVo();
-			m.setMachineCode(flatItem.getMachineCode());
-			
-			//	Machine --> Manufacturer
-			m.setManufacturerCode(flatItem.getManufacturerCode());
-			m.setModel(m.getModelFromMachineCode()); // Extracting according to rule
-			ManufacturerVo man = new ManufacturerVo();
-			man.setCode(m.getManufacturerCode());
-			m.setManufacturer(man);
-			
-			//	Machine --> Group
-			m.setGroupCode(flatItem.getGroupCode());
-			GroupVo g = new GroupVo();
-			g.setCode(m.getGroupCode());
-			m.setGroup(g);
-			
-			//	Machine --> Subgroup
-			m.setSubgroupCode(flatItem.getSubgroupCode());
-			SubgroupVo s = new SubgroupVo();
-			s.setCode(m.getSubgroupCode());
-			m.setSubgroup(s);
-			
-			m.validate();
-			item.setMachine(m);
+			if ((flatItem.getMachineCode()) != null) {
+				//	Machine
+				MachineVo m = new MachineVo();
+				m.setMachineCode(flatItem.getMachineCode());
+				
+				//	Machine --> Manufacturer
+				m.setManufacturerCode(flatItem.getManufacturerCode());
+				m.setModel(m.getModelFromMachineCode()); // Extracting according to rule
+				ManufacturerVo man = new ManufacturerVo();
+				man.setCode(m.getManufacturerCode());
+				m.setManufacturer(man);
+				
+				//	Machine --> Group
+				m.setGroupCode(flatItem.getGroupCode());
+				GroupVo g = new GroupVo();
+				g.setCode(m.getGroupCode());
+				m.setGroup(g);
+				
+				//	Machine --> Subgroup
+				m.setSubgroupCode(flatItem.getSubgroupCode());
+				SubgroupVo s = new SubgroupVo();
+				s.setGroupCode(m.getGroupCode());
+				s.setSubgroupCode(m.getSubgroupCode());
+				m.setSubgroup(s);
+				
+				m.validate();
+				item.setMachine(m);
+			} else {
+				faultLogger.warn("Item " + item.getItemCode() + " has no machine code associated");
+			}
 			
 			
 			items.add(item);
 		}
 		
 		return items;
+	}
+
+	public int populateProductGroups(String fileName, String sheetId, boolean firstRowIsHeader, boolean exitOnError) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		reportLogger.info("\r\n\r\n\r\n");
+		reportLogger.info("-------------------------------");
+		reportLogger.info("Populate product groups started");
+		reportLogger.info("-------------------------------");
+		
+		//
+		//	First empty tables
+		//
+		jdbcBulkDataWriter.truncate("MATERIAL");
+		jdbcBulkDataWriter.deleteAll("PRODUCT_GROUP");
+		
+		//
+		//	Read all records from Excel
+		//
+		log.info("Start reading from " + fileName);
+		Collection<ProductGroupVo> pgs = excelReader.readAllProductGroups(fileName, sheetId, firstRowIsHeader);
+		reportLogger.info("Successfully read file " + fileName);
+		
+		int numTot = pgs.size();
+		log.info("Number of records read from " + fileName + ": " + numTot);
+		reportLogger.info("About to process " + numTot + " records");
+		
+		//
+		//	Inserting in DB
+		//
+		int numSuccess = 0;
+		int numFailures = 0;
+		for (ProductGroupVo pg : pgs) {
+			try {
+				jdbcBulkDataWriter.insertProductGroup(pg);
+				
+				numSuccess ++;
+				if (numSuccess % 100 == 0) {
+					reportLogger.info(numSuccess + " records processed (" + _perc(numTot, numSuccess) + ")");
+				}
+			} catch (Exception e) {
+				log.error("Unable to insert product group " + pg.getCode(), e);
+				faultLogger.error("Unable to insert product group " + pg.getCode());
+				numFailures ++;
+				
+				if (exitOnError) {
+					reportLogger.info("Execution interrupted at product group " + pg.getCode());
+					break;
+				}
+			}
+		}
+		
+		//
+		//	Write a short report
+		//
+		sw.stop();
+		long elapsed = sw.getTotalTimeMillis();
+		reportLogger.info("");
+		reportLogger.info("");
+		reportLogger.info("----------------------");
+		reportLogger.info("   EXECUTION REPORT   ");
+		reportLogger.info("----------------------");
+		reportLogger.info("tot processed records ... " + numTot);
+		reportLogger.info("successfully processed .. " + numSuccess);
+		reportLogger.info("failures ................ " + ((numFailures > 0) ? numFailures : "NO FAILURES"));
+		reportLogger.info("elapsed time ............ " + _formatTime(elapsed));
+		
+		return numSuccess;
+	}
+
+	public int populateGroups(String fileName, String sheetId, boolean firstRowIsHeader, boolean exitOnError) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		reportLogger.info("\r\n\r\n\r\n");
+		reportLogger.info("-------------------------------");
+		reportLogger.info("Populate groups started");
+		reportLogger.info("-------------------------------");
+		
+		//
+		//	First empty tables
+		//
+		//jdbcBulkDataWriter.deleteAll("SUBGROUP", "G_ROUP");
+		
+		//
+		//	Read all records from Excel
+		//
+		log.info("Start reading from " + fileName);
+		Collection<GroupVo> gs = excelReader.readAllGroups(fileName, sheetId, firstRowIsHeader);
+		reportLogger.info("Successfully read file " + fileName);
+		
+		int numTot = gs.size();
+		log.info("Number of records read from " + fileName + ": " + numTot);
+		reportLogger.info("About to process " + numTot + " records");
+		
+		//
+		//	Inserting in DB
+		//
+		int numSuccess = 0;
+		int numFailures = 0;
+		for (GroupVo g : gs) {
+			try {
+				jdbcBulkDataWriter.insertGroup(g);
+				
+				numSuccess ++;
+				if (numSuccess % 100 == 0) {
+					reportLogger.info(numSuccess + " records processed (" + _perc(numTot, numSuccess) + ")");
+				}
+			} catch (Exception e) {
+				log.error("Unable to insert group " + g.getCode(), e);
+				faultLogger.error("Unable to insert group " + g.getCode());
+				numFailures ++;
+				
+				if (exitOnError) {
+					reportLogger.info("Execution interrupted at group " + g.getCode());
+					break;
+				}
+			}
+		}
+		
+		//
+		//	Write a short report
+		//
+		sw.stop();
+		long elapsed = sw.getTotalTimeMillis();
+		reportLogger.info("");
+		reportLogger.info("");
+		reportLogger.info("----------------------");
+		reportLogger.info("   EXECUTION REPORT   ");
+		reportLogger.info("----------------------");
+		reportLogger.info("tot processed records ... " + numTot);
+		reportLogger.info("successfully processed .. " + numSuccess);
+		reportLogger.info("failures ................ " + ((numFailures > 0) ? numFailures : "NO FAILURES"));
+		reportLogger.info("elapsed time ............ " + _formatTime(elapsed));
+		
+		return numSuccess;
+	}
+	
+	public int populateSubgroups(String fileName, String sheetId, boolean firstRowIsHeader, boolean exitOnError) throws Exception {
+		StopWatch sw = new StopWatch();
+		sw.start();
+		reportLogger.info("\r\n\r\n\r\n");
+		reportLogger.info("-------------------------------");
+		reportLogger.info("Populate sub groups started");
+		reportLogger.info("-------------------------------");
+		
+		//
+		//	First empty tables
+		//
+		//jdbcBulkDataWriter.deleteAll("SUBGROUP");
+		
+		//
+		//	Read all records from Excel
+		//
+		log.info("Start reading from " + fileName);
+		Collection<SubgroupVo> sgs = excelReader.readAllSubgroups(fileName, sheetId, firstRowIsHeader);
+		reportLogger.info("Successfully read file " + fileName);
+		
+		int numTot = sgs.size();
+		log.info("Number of records read from " + fileName + ": " + numTot);
+		reportLogger.info("About to process " + numTot + " records");
+		
+		//
+		//	Inserting in DB
+		//
+		int numSuccess = 0;
+		int numFailures = 0;
+		for (SubgroupVo sg : sgs) {
+			try {
+				jdbcBulkDataWriter.insertSubgroup(sg);
+				
+				numSuccess ++;
+				if (numSuccess % 100 == 0) {
+					reportLogger.info(numSuccess + " records processed (" + _perc(numTot, numSuccess) + ")");
+				}
+			} catch (Exception e) {
+				log.error("Unable to insert subgroup " + sg, e);
+				faultLogger.error("Unable to insert subgroup " + sg);
+				numFailures ++;
+				
+				if (exitOnError) {
+					reportLogger.info("Execution interrupted at subgroup " + sg);
+					break;
+				}
+			}
+		}
+		
+		//
+		//	Write a short report
+		//
+		sw.stop();
+		long elapsed = sw.getTotalTimeMillis();
+		reportLogger.info("");
+		reportLogger.info("");
+		reportLogger.info("----------------------");
+		reportLogger.info("   EXECUTION REPORT   ");
+		reportLogger.info("----------------------");
+		reportLogger.info("tot processed records ... " + numTot);
+		reportLogger.info("successfully processed .. " + numSuccess);
+		reportLogger.info("failures ................ " + ((numFailures > 0) ? numFailures : "NO FAILURES"));
+		reportLogger.info("elapsed time ............ " + _formatTime(elapsed));
+		
+		return numSuccess;
 	}
 
 

@@ -6,6 +6,13 @@ public class ProductGroupVo {
 	 */
 	private String code;
 	
+	/*
+	 * The code of the parent product group (if any)
+	 */
+	private String codeParent;
+	
+	private int hierarchicalLevel;
+	
 
 	/**
 	 * The short description of the unit
@@ -37,6 +44,26 @@ public class ProductGroupVo {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+
+	public String getCodeParent() {
+		return codeParent;
+	}
+
+
+	public void setCodeParent(String codeParent) {
+		this.codeParent = codeParent;
+	}
+
+
+	public int getHierarchicalLevel() {
+		return hierarchicalLevel;
+	}
+
+
+	public void setHierarchicalLevel(int hierarchicalLevel) {
+		this.hierarchicalLevel = hierarchicalLevel;
 	}
 
 	

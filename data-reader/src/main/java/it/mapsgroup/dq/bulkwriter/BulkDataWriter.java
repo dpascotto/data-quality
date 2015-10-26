@@ -9,4 +9,5 @@ public interface BulkDataWriter {
 	void truncate(String... tableNames) throws Exception;
 	void lazyInsertUnitOfMeasure(UnitOfMeasureVo unitOfMeasure) throws Exception;
 	void insertFlatItem(SaipemFlatDataVo item) throws Exception;
+	void deleteAll(String[] tableNames) throws Exception;
 }

@@ -14,12 +14,21 @@
 
 	<context:component-scan base-package="it.mapsgroup.dq" />
 	
- 	 <bean id="dataSource" class="org.springframework.jdbc.datasource.SingleConnectionDataSource">
+ 	 <bean id="dataSource_locale" class="org.springframework.jdbc.datasource.SingleConnectionDataSource">
         <property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" />
         <property name="url" value="jdbc:oracle:thin:@localhost:1521:XE" />
         <property name="username" value="SAIPEM" />
         <property name="password" value="SAIPEM" />
-    </bean>
+        <property name="autoCommit" value="true" />
+     </bean>
+     
+ 	 <bean id="dataSource" class="org.springframework.jdbc.datasource.SingleConnectionDataSource">
+        <property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" />
+        <property name="url" value="jdbc:oracle:thin:@oracle-maps:1521:orcl" />
+        <property name="username" value="SAIPEM" />
+        <property name="password" value="saipem123" />
+        <property name="autoCommit" value="true" />
+     </bean>
     
 	<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate" >
         <property name="dataSource" ref="dataSource" />

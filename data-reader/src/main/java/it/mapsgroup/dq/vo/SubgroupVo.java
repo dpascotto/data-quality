@@ -4,31 +4,53 @@ import java.io.Serializable;
 
 public class SubgroupVo implements Serializable {
 	
-	private String code;
+	private String groupCode;
 	
-	private String description;
+	private String subgroupCode;
+	
+	private String descriptionEn;
+	
+	private String descriptionIt;
 
 	@Override
 	public String toString() {
-		return "SubgroupVo [code=" + code + ", description=" + description
-				+ "]";
+		return "SubgroupVo [groupCode=" + groupCode + ", subgroupCode="
+				+ subgroupCode + ", descriptionEn=" + descriptionEn
+				+ ", descriptionIt=" + descriptionIt + "]";
 	}
 
-	public String getCode() {
-		return code;
+	public String getGroupCode() {
+		return groupCode;
 	}
 
-	public void setCode(String code) {
-		this.code = code;
+	public void setGroupCode(String groupCode) {
+		this.groupCode = groupCode;
 	}
 
-	public String getDescription() {
-		return description;
+	public String getSubgroupCode() {
+		return subgroupCode;
 	}
 
-	public void setDescription(String description) {
-		this.description = description;
+	public void setSubgroupCode(String subgroupCode) {
+		this.subgroupCode = subgroupCode;
 	}
+
+	public String getDescriptionEn() {
+		return descriptionEn;
+	}
+
+	public void setDescriptionEn(String descriptionEn) {
+		this.descriptionEn = descriptionEn;
+	}
+
+	public String getDescriptionIt() {
+		return descriptionIt;
+	}
+
+	public void setDescriptionIt(String descriptionIt) {
+		this.descriptionIt = descriptionIt;
+	}
+
 	
 	
 

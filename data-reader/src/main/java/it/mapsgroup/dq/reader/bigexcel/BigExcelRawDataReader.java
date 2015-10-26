@@ -3,8 +3,14 @@ package it.mapsgroup.dq.reader.bigexcel;
 import it.mapsgroup.dq.reader.RawDataReader;
 import it.mapsgroup.dq.reader.bigexcel.mapper.ExcelMapper;
 import it.mapsgroup.dq.reader.bigexcel.mapper.FlatTableMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.GroupMapper;
 import it.mapsgroup.dq.reader.bigexcel.mapper.ItemMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.ManufacturerMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.ProductGroupMapper;
+import it.mapsgroup.dq.reader.bigexcel.mapper.SubgroupMapper;
 import it.mapsgroup.dq.vo.ItemVo;
+import it.mapsgroup.dq.vo.ManufacturerVo;
+import it.mapsgroup.dq.vo.ProductGroupVo;
 import it.mapsgroup.dq.vo.SaipemFlatDataVo;
 
 import java.io.InputStream;
@@ -45,6 +51,26 @@ public class BigExcelRawDataReader<T> implements RawDataReader {
 		return readAll(file, sheetId, firstRowIsHeader, new FlatTableMapper());
 	}
 	
+	@Override
+	public Collection<ManufacturerVo> readAllManufacturers(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new ManufacturerMapper());
+	}
+	
+	@Override
+	public Collection<ProductGroupVo> readAllProductGroups(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new ProductGroupMapper());
+	}
+	
+	@Override
+	public Collection<ProductGroupVo> readAllGroups(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new GroupMapper());
+	}
+	
+	@Override
+	public Collection<ProductGroupVo> readAllSubgroups(String file, String sheetId, boolean firstRowIsHeader) throws Exception {
+		return readAll(file, sheetId, firstRowIsHeader, new SubgroupMapper());
+	}
+	
 	private Collection readAll(String file, String sheetId, boolean firstRowIsHeader, ExcelMapper mapper) throws Exception {
 		
 		Collection allRecords = new ArrayList();
@@ -77,7 +103,6 @@ public class BigExcelRawDataReader<T> implements RawDataReader {
 		log.info("All records read: " + allRecords.size());
 		return allRecords;
 	}
-
 
 
 

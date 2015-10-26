@@ -22,7 +22,14 @@ public abstract class ExcelMapper {
 		String val = getString(row, columnLetter);
 		return "X".equalsIgnoreCase(val);
 	}
-
+	
+	protected int getInt(HashMap row, String columnLetter) {
+		String val = getString(row, columnLetter);
+		if (val != null) {
+			return Integer.parseInt(val);
+		}
+		return 0;
+	}
 
 
 }

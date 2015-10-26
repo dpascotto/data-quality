@@ -6,11 +6,14 @@ public class GroupVo implements Serializable {
 	
 	private String code;
 	
-	private String description;
+	private String descriptionEn;
+	
+	private String descriptionIt;
 
 	@Override
 	public String toString() {
-		return "GroupVo [code=" + code + ", description=" + description + "]";
+		return "GroupVo [code=" + code + ", descriptionEn=" + descriptionEn
+				+ ", descriptionIt=" + descriptionIt + "]";
 	}
 
 	public String getCode() {
@@ -21,14 +24,22 @@ public class GroupVo implements Serializable {
 		this.code = code;
 	}
 
-	public String getDescription() {
-		return description;
+	public String getDescriptionEn() {
+		return descriptionEn;
 	}
 
-	public void setDescription(String description) {
-		this.description = description;
+	public void setDescriptionEn(String descriptionEn) {
+		this.descriptionEn = descriptionEn;
 	}
-	
-	
+
+	public String getDescriptionIt() {
+		return descriptionIt;
+	}
+
+	public void setDescriptionIt(String descriptionIt) {
+		this.descriptionIt = descriptionIt;
+	}
+
+
 
 }

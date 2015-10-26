@@ -63,7 +63,7 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 	@Override
 	public void insertItem(ItemVo item) throws Exception {
 		lazyInsertUnitOfMeasure(item.getUnitOfMeasure());
-		lazyInsertProductGroup(item.getProductGroup());
+		lazyInsertOrUpdateProductGroup(item.getProductGroup());
 		lazyInsertMachine(item.getMachine());
 		
 		int inserted = jdbcTemplate.update("INSERT INTO MATERIAL " +
@@ -135,7 +135,7 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 	}
 
 	private void lazyInsertGroup(GroupVo group) {
-		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM G_ROUP WHERE CODE = ?", 
+		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM G_ROUP WHERE GROUP_CODE = ?", 
 				new Object[] { group.getCode() },
 				Integer.class);
 		
@@ -144,7 +144,7 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 			//	If not existing, insert
 			//
 			try {
-				int inserted = jdbcTemplate.update("INSERT INTO G_ROUP (CODE) VALUES (?)",
+				int inserted = jdbcTemplate.update("INSERT INTO G_ROUP (GROUP_CODE) VALUES (?)",
 						group.getCode()
 						);
 			} catch (Exception e) {
@@ -156,8 +156,8 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 	}
 
 	private void lazyInsertSubgroup(SubgroupVo subgroup) {
-		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SUBGROUP WHERE CODE = ?", 
-				new Object[] { subgroup.getCode() },
+		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SUBGROUP WHERE GROUP_CODE = ? AND SUBGROUP_CODE = ?", 
+				new Object[] { subgroup.getGroupCode(), subgroup.getSubgroupCode() },
 				Integer.class);
 		
 		if (count == 0) {
@@ -165,18 +165,19 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 			//	If not existing, insert
 			//
 			try {
-				int inserted = jdbcTemplate.update("INSERT INTO SUBGROUP (CODE) VALUES (?)",
-						subgroup.getCode()
+				int inserted = jdbcTemplate.update("INSERT INTO SUBGROUP (GROUP_CODE, SUBGROUP_CODE) VALUES (?, ?)",
+						subgroup.getGroupCode(),
+						subgroup.getSubgroupCode()
 						);
 			} catch (Exception e) {
-				log.error("Unable to insert subgroup " + subgroup.getCode(), e);
+				log.error("Unable to insert subgroup " + subgroup, e);
 				
 				throw e;
 			}
 		}
 	}
 
-	public void lazyInsertProductGroup(ProductGroupVo productGroup) throws Exception {
+	public void lazyInsertOrUpdateProductGroup(ProductGroupVo productGroup) throws Exception {
 		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM PRODUCT_GROUP WHERE CODE = ?", 
 				new Object[] { productGroup.getCode() },
 				Integer.class);
@@ -196,8 +197,19 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 				throw e;
 			}
 		} else {
-			// For the moment, do nothing. Next: check consistency
-			//	TODO estrarre la UoM e verificare che tech code e descrizione siano consistenti (case insensitive)
+			//
+			//	If existing, update description
+			//
+			try {
+				int inserted = jdbcTemplate.update("UPDATE PRODUCT_GROUP SET DESCRIPTION = ? WHERE CODE = ?",
+						productGroup.getDescription(),
+						productGroup.getCode()
+						);
+			} catch (Exception e) {
+				log.error("Unable to insert unit of measure " + productGroup.getCode(), e);
+				
+				throw e;
+			}
 		}
 	}
 	
@@ -237,7 +249,106 @@ public class JdbcBulkDataWriter implements BulkDataWriter {
 				log.info("Table " + tableName + " successfully truncated");
 			} catch (Exception e) {
 				log.error("Unable to truncate table " + tableName, e);
-				throw e;
+				//throw e;
+			}
+		}
+		
+	}
+
+	@Override
+	public void deleteAll(String... tableNames) throws Exception {
+		
+		for (String tableName : tableNames) {
+			try {
+				jdbcTemplate.execute("DELETE FROM " + tableName);
+				log.info("Table " + tableName + " successfully emptied");
+			} catch (Exception e) {
+				log.error("Unable to empty table " + tableName, e);
+				//throw e;
+			}
+		}
+		
+	}
+
+	public void insertManufacturer(ManufacturerVo man) {
+		int inserted = jdbcTemplate.update("INSERT INTO MANUFACTURER " +
+				" (CODE, NAME) " + 
+				" VALUES (?, ?)",
+				_awfulPatch(man.getCode()),
+				_awfulPatch(man.getName())
+				);
+	}
+
+	public void insertProductGroup(ProductGroupVo pg) {
+		int inserted = jdbcTemplate.update("INSERT INTO PRODUCT_GROUP " +
+				" (CODE, CODE_PARENT, HIER_LEVEL, DESCRIPTION) " + 
+				" VALUES (?, ?, ?, ?)",
+				_awfulPatch(pg.getCode()),
+				_awfulPatch(pg.getCodeParent()),
+				pg.getHierarchicalLevel(),
+				_awfulPatch(pg.getDescription())
+				);
+	}
+
+	public void insertGroup(GroupVo g) {
+		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM G_ROUP WHERE GROUP_CODE = ?", 
+				new Object[] { g.getCode() },
+				Integer.class);
+		
+		if (count == 0) {
+			int inserted = jdbcTemplate.update("INSERT INTO G_ROUP " +
+					" (GROUP_CODE, DESCRIPTION_EN) " + 
+					" VALUES (?, ?)",
+					_awfulPatch(g.getCode()),
+					_awfulPatch(g.getDescriptionEn())
+					);
+		} else {
+			if (g.getDescriptionIt() != null) {
+				int updated = jdbcTemplate.update("UPDATE G_ROUP SET DESCRIPTION_IT = ? WHERE GROUP_CODE = ?",
+						g.getDescriptionIt(),
+						g.getCode()
+						);
+			}
+			
+			if (g.getDescriptionEn() != null) {
+				int updated = jdbcTemplate.update("UPDATE G_ROUP SET DESCRIPTION_EN = ? WHERE GROUP_CODE = ?",
+						g.getDescriptionEn(),
+						g.getCode()
+						);
+			}
+		}
+		
+	}
+	
+	public void insertSubgroup(SubgroupVo sg) {
+		int count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM SUBGROUP WHERE GROUP_CODE = ? AND SUBGROUP_CODE = ?", 
+				new Object[] { sg.getGroupCode(), sg.getSubgroupCode() },
+				Integer.class);
+		
+		if (count == 0) {
+			//
+			//	Missing parent group?
+			//
+			GroupVo dummy = new GroupVo();
+			dummy.setCode(sg.getGroupCode());
+			dummy.setDescriptionEn("** Missing in original extraction from SAP **");
+			dummy.setDescriptionIt("** Mancante nel file originale da SAP **");
+			lazyInsertGroup(dummy);
+			
+			int inserted = jdbcTemplate.update("INSERT INTO SUBGROUP " +
+					" (GROUP_CODE, SUBGROUP_CODE, DESCRIPTION_EN) " + 
+					" VALUES (?, ?, ?)",
+					_awfulPatch(sg.getGroupCode()),
+					_awfulPatch(sg.getSubgroupCode()),
+					_awfulPatch(sg.getDescriptionEn())
+					);
+		} else {
+			if (sg.getDescriptionIt() != null) {
+				int updated = jdbcTemplate.update("UPDATE SUBGROUP SET DESCRIPTION_IT = ? WHERE GROUP_CODE = ? AND SUBGROUP_CODE = ?",
+					sg.getDescriptionIt(),
+					sg.getGroupCode(),
+					sg.getSubgroupCode()
+					);
 			}
 		}
 		

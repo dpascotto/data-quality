@@ -55,7 +55,7 @@ public class ItemMapper extends ExcelMapper {
 		//	Machine --> Subgroup
 		m.setSubgroupCode(getString(row, "T"));
 		SubgroupVo s = new SubgroupVo();
-		s.setCode(m.getSubgroupCode());
+		s.setGroupCode(m.getSubgroupCode());
 		m.setSubgroup(s);
 		
 		m.validate();
